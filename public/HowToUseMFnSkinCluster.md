@@ -1,7 +1,9 @@
 ---
 title: 【Maya】OpenMaya.MFnSkinClusterの使い方【Python API 2.0】
 tags:
-  - ''
+  - maya
+  - OpenMaya
+  - Python
 private: false
 updated_at: ''
 id: null
@@ -11,7 +13,8 @@ ignorePublish: false
 ---
 # はじめに
 - この記事は**PythonAPI2.0**のMFnSkinClusterクラスの使い方をまとめたものです。
-- PythonAPI1.0やAPI(C++)の使い方は載っていません。
+- PythonAPI1.0やAPI(C++)の使い方は載っていません
+<font color="DeepPink">**TODO**</font>: 細かいバージョンを載せる
 
 # 環境
 Autodesk Maya 2024.1
@@ -20,9 +23,13 @@ Autodesk Maya 2024.1
 # MFnSkinClusterとは
 skinClusterからウェイト情報を取得したり設定することが出来るクラスです。
 
+[【Maya Python API 2.0 Reference】OpenMayaAnim.MFnSkinCluster](https://help.autodesk.com/view/MAYAUL/2022/ENU/?guid=Maya_SDK_py_ref_class_open_maya_anim_1_1_m_fn_skin_cluster_html)
+
 # なぜOpenMayaなのか
-maya.cmdsの中にもウェイト情報を操作出来るコマンド、**skinCluster**が存在します。
-しかし、このコマンドは処理速度が遅いため、実用的なツールを作る際は処理速度が速いOpenMayaを使用します。
+maya.cmdsのスキンウェイト情報を操作出来るコマンド「**skinCluster**」と比べて、
+圧倒的に処理速度が速いためです。
+
+[【Maya Python Command Reference】skinCluster](http://me.autodesk.jp/wam/maya/docs/Maya2009/CommandsPython/skinCluster.html)
 
 # モジュールのインポート
 ```import_oma2.py
@@ -31,21 +38,18 @@ import maya.api.OpenMayaAnim as oma2
 ```
 使用するためにはmaya.api.OpenMayaAnimというモジュールをインポートします。
 エイリアスをoma2としておくのがおすすめです。
-maya.api.OpenMayaも一緒に使うことが多いのでまとめてインポートしておきます。
+maya.api.OpenMayaも一緒に使うことが多いので一緒にインポートしておきます。
 
-# インスタンス化する
-MFnSkinClusterの生成には引数にMObject型のインスタンスが必要になります。
-MObjectを生成するにはにMDagPathの型インスタンスが必要になります。
+# 大まかな手順
+1. MFnSkinClusterをインスタンス化する
+2. スキンウェイトをGetする
+3. スキンウェイトをSetする
 
-大まかな流れは下記です。
-- MDagPath型のインスタンス
-↓
-- MObject型のインスタンス
-↓
-- MFnSkinCluster型のインスタンス
+# 1. MFnSkinClusterをインスタンス化する
+わりとややこしいので、サンプルコードを見ながら解説していきます。
 
-以下は「選択しているバインド済メッシュからMFnSkinClusterインスタンスを生成する」例です
-```import_oma2.py
+以下は「選択しているバインド済メッシュからMFnSkinClusterインスタンスを生成する」例です。
+```python
 # -*- coding: utf-8 -*-
 from maya import cmds, mel
 import maya.api.OpenMaya as om2
@@ -64,11 +68,9 @@ def main():
 
     print(type(skincluster_fn))
 
-def get_skincluster_node(mesh_depend_node):
-    dg_iterator = om2.MItDependencyGraph(
-                    mesh_depend_node,
-                    om2.MFn.kSkinClusterFilter,    # NOTE: kInvalidを渡すと無指定になるので全て列挙することもできる
-                    om2.MItDependencyGraph.kUpstream)
+def get_skincluster_node(mesh_node):
+    # type: (om2.MObject) -> om2.MObject
+    dg_iterator = om2.MItDependencyGraph(mesh_node, om2.MFn.kSkinClusterFilter, om2.MItDependencyGraph.kUpstream)
     while not dg_iterator.isDone():
         m_object = dg_iterator.currentNode()
         if m_object.hasFn(om2.MFn.kSkinClusterFilter):
@@ -81,41 +83,62 @@ if __name__ == '__main__':
 ```
 一つずつ解説していきます。
 
-## 選択項目を取得
+### コンストラクタの確認
+MFnSkinClusterのコンストラクタのシグネチャは以下です。
+```python
+def __init__(self, object):
+    # type: (om2.MObject) -> None
+    ...
+```
+MFnSkinClusterの生成にはMObject型のインスタンスが必要になります。
+
+MFnSkinClusterに行き着くまでに色々な型を経由するのですが、
+大まかな流れは以下です。
+- バインドされたメッシュのインスタンス(MDagPath型)を生成
+↓
+- スキンクラスターノードのインスタンス(MObject)を生成
+↓
+- スキンクラスターノードのインスタンス(MFnSkinCluster型)を生成
+
+ちなみにPythonAPIのコンストラクタのシグネチャはリファレンスに載っていないため、
+C++のリファレンスを参照してください。
+[【Maya API C++ Reference】OpenMayaAnim.MFnSkinCluster](https://download.autodesk.com/us/maya/2009help/API/class_m_fn_skin_cluster.html)
+
+### 選択項目を取得
 ```python
 def main():
     active_sel_list = om2.MGlobal.getActiveSelectionList() # type: om2.MSelectionList
 ```
-現在の選択項目を取得します。
+MDagPathを生成する前段階として、現在の選択項目を取得します。
 maya.cmdsで言うところのcmds.lsにあたります。
 返り値の型はlist[str]ではなくMSelectionList型です。
 
 [【Maya Python API 2.0 Reference】OpenMaya.MGlobal](https://help.autodesk.com/view/MAYAUL/2022/ENU/?guid=Maya_SDK_py_ref_class_open_maya_1_1_m_global_html)
 [【Maya Python API 2.0 Reference】OpenMaya.MSelectionList](https://help.autodesk.com/view/MAYAUL/2022/ENU/?guid=Maya_SDK_py_ref_class_open_maya_1_1_m_selection_list_html)
 
-## MDagPathを取得
+### MDagPathを取得
 ```diff_python
 def main():
     active_sel_list = om2.MGlobal.getActiveSelectionList() # type: om2.MSelectionList
 +   dag_path = active_sel_list.getDagPath(0) # type: om2.MDagPath
 ```
-MSelectionListのメソッド**getDagPath**を使い、MDagPathを取得します。
+MSelectionListクラスの**getDagPath**メソッドを使い、選択項目のMDagPathを取得します。
 引数は取り出したい選択項目のIndexです（listの添字だと思ってください）
 今回は1つ目の選択項目から取り出したいため、0を渡します。
 
-## メッシュのMDagPathを取得
+### メッシュのMDagPathを取得
 ```diff_python
 def main():
     active_sel_list = om2.MGlobal.getActiveSelectionList() # type: om2.MSelectionList
     dag_path = active_sel_list.getComponent(0) # type: om2.MDagPath
 +   mesh_dag_path = dag_path.extendToShape() # type: om2.MDagPath
 ```
-ビューポート等からメッシュを選択した場合、メッシュではなくtransformノードを選択しています。
-transformからskinClusterをたどることは出来ないため、一度シェイプ(メッシュ)に変換します。
+ビューポート等からメッシュを選択した場合、meshノードではなくtransformノードを選択しています。
+MDagPathクラスの**extendToShape**メソッドでシェイプ(メッシュ)に変換します。
 
 [【Maya Python API 2.0 Reference】OpenMaya.MDagPath](https://help.autodesk.com/view/MAYAUL/2022/ENU/?guid=Maya_SDK_py_ref_class_open_maya_1_1_m_dag_path_html)
 
-## skinClusterノードを取得(その1)
+### skinClusterノードを取得(その1)
 ```diff_python
 def main():
     active_sel_list = om2.MGlobal.getActiveSelectionList() # type: om2.MSelectionList
@@ -126,10 +149,13 @@ def main():
 + def get_skincluster_node(mesh_node):
 +   ...
 ```
+メッシュからスキンクラスターノードを探します。
 ノードからノードを探す処理は、OpenMayaだとやや長い処理が必要になるため、関数を用意します。
 ちなみにmaya.cmdsであれば、cmds.listHistoryで簡単に取得できます。
 
-## skinClusterノードを取得(その2)
+[【Maya Python Command Reference】listHistory](http://me.autodesk.jp/wam/maya/docs/Maya2010/CommandsPython/listHistory.html)
+
+### skinClusterノードを取得(その2)
 ```diff_python
 def main():
     active_sel_list = om2.MGlobal.getActiveSelectionList() # type: om2.MSelectionList
@@ -151,7 +177,7 @@ def get_skincluster_node(mesh_node):
 
 [【Maya Python API 2.0 Reference】OpenMaya.MItDependencyGraph](https://help.autodesk.com/view/MAYAUL/2022/ENU/?guid=Maya_SDK_py_ref_class_open_maya_1_1_m_it_dependency_graph_html)
 
-## MFnSkinClusterを生成
+### MFnSkinClusterを生成
 ```diff_python
 def main():
     active_sel_list = om2.MGlobal.getActiveSelectionList() # type: om2.MSelectionList
@@ -170,4 +196,175 @@ def get_skincluster_node(mesh_node):
     return None
 ```
 ここでやっと**MFnSkinCluster**が出てきました。
-先程取得したskinClusterノードを引数に渡し、MFnSkinClusterをインスタンス化します。
+先程取得したskinClusterノードをコンストラクタに渡し、MFnSkinClusterをインスタンス化します。
+
+[【Maya Python API 2.0 Reference】OpenMayaAnim.MFnSkinCluster](https://help.autodesk.com/view/MAYAUL/2022/ENU/?guid=Maya_SDK_py_ref_class_open_maya_anim_1_1_m_fn_skin_cluster_html)
+
+# 2. スキンウェイトをGetする
+インスタンスが用意できたので早速スキンウェイトをGetしてみます。
+GetするにはMFnSkinClusterクラスの**getWeights**メソッドを使用します。
+
+getWeightメソッドのシグネチャは以下です(オーバーロードが3つ)
+```diff_python
+def getWeights(shape, components):
+    # type: (om2.MDagPath, om2.MObject) -> (om2.MDoubleArray, int)
+    ...
+def getWeights(shape, components, influence):
+    # type: (om2.MDagPath, om2.MObject, int) -> om2.MDoubleArray
+    ...
+def getWeights(shape, components, influences):
+    # type: (om2.MDagPath, om2.MObject, om2.MIntArray) -> om2.MDoubleArray
+    ...
+```
+## 引数解説
+1つずつ引数を確認していきます。
+
+### shape
+>リファレンスより
+>* shape (MDagPath) - the object being deformed by the skinCluster
+
+とあるので、要はバインドされたメッシュのことです。
+```python
+active_sel_list = om2.MGlobal.getActiveSelectionList() # type: om2.MSelectionList
+dag_path = active_sel_list.getDagPath(0) # type: om2.MDagPath
+mesh_dag_path = dag_path.extendToShape() # type: om2.MDagPath
+```
+上記の`mesh_dag_path`をそのまま使えばOKです。
+
+### components
+>リファレンスより
+>* components (MObject) - components to return weights for
+
+少々説明が少ないですが、要はコンポーネント(頂点やエッジ)のことです。
+
+ここではコンポーネントの取得方法を2つ紹介します。
+- 選択しているコンポーネントを取得する
+- すべてのコンポーネントを取得する
+
+##### 選択しているコンポーネントを取得する
+```python
+active_sel_list = om2.MGlobal.getActiveSelectionList() # type: om2.MSelectionList
+dag_path, m_object_component = active_sel_list.getComponent(0) # type: (om2.MDagPath, om2.MObject)
+```
+MSelectionListクラスの**getComponent**メソッドで選択中のコンポーネントを取得できます。
+ちなみに返り値はタプルになっていて、0番目がMDagPath、1番目がMObjectになっています。
+必要なのは1番目のMObjectのみですが、0番目のMDagPathも大抵どこかの処理で使うので、
+同時に取得してしまうことが多いです。
+
+##### すべてのコンポーネントを指定する
+```python
+single_idx_comp = om2.MFnSingleIndexedComponent() # type: om2.MFnSingleIndexedComponent
+vert_comp = single_idx_comp.create(om2.MFn.kMeshVertComponent) # type: om2.MObject
+```
+MFnSingleIndexedComponentクラスの**create**メソッドで生成します。
+上記の例だと頂点コンポーネントを取得していますが、エッジでもフェースでも問題ありません
+<font color="DeepPink">**TODO**</font>: 本当に問題ないか確認する
+
+[【Maya Python API 2.0 Reference】OpenMaya.MFnSingleIndexedComponent](https://help.autodesk.com/view/MAYAUL/2022/ENU/?guid=Maya_SDK_py_ref_class_open_maya_1_1_m_fn_single_indexed_component_html)
+
+### influence
+>リファレンスより
+>* influence (int) - index of the single influence to return weights for
+
+骨のインデックスです。
+特定の骨のスキンウェイトを取得したい場合に使用することになります。
+
+取得方法はユースケースによるところが大きいので、
+汎用的に使えそうなメソッドを2つ紹介します
+- MFnSkinCluster.influenceObjects()
+- MFnSkinCluster.indexForInfluenceObject()
+
+##### MFnSkinCluster.influenceObjects()
+```python
+influences = skincluster_fn.influenceObjects() # type: om2.MDagPathArray
+```
+MFnSkinClusterクラスの**influenceObjects**メソッドです。
+スキンクラスタに紐づいている骨をMDagPathArray型(MDagPathのlistのようなもの)で受け取ります。
+
+参考程度ですが、骨の名前を確認したい場合は以下のような書き方をします
+```python
+def print_influence_names(skincluster_fn):
+    # type: (om2.MFnSkinCluster) -> None
+    infl_dag_path_array = skincluster_fn.influenceObjects() # type: om2.MDagPathArray
+    for infl_dag_path in infl_dag_path_array:
+        print(infl_dag_path.fullPathName()) # ロングネーム
+        print(infl_dag_path.__str__()) # ショートネーム
+```
+
+##### MFnSkinCluster.indexForInfluenceObject()
+```python
+index = skincluster_fn.indexForInfluenceObject(influence_dag_path) # type: int
+```
+MFnSkinClusterクラスの**indexForInfluenceObject**メソッドです。
+MDagPath型の骨を渡し、その骨のindexを受け取ります。
+
+### influences
+>リファレンスより
+>* influences (MIntArray) - indices of multiple influences to return weights for
+
+influenceが複数に対応した版です。
+
+ちなみにMIntArraryはlistにキャストできます。
+```python
+def to_int_list(m_int_array):
+    # type: (om2.MIntArray) -> list[int]
+    return list(m_int_array)
+
+def to_m_int_array(int_list):
+    # type: (list[int]) -> om2.MIntArray
+    return om2.MIntArray(int_list)
+```
+Json等にシリアライズする際に必要になるかもしれません。
+
+[【Maya Python API 2.0 Reference】OpenMaya.MIntArray](https://help.autodesk.com/view/MAYAUL/2022/ENU/?guid=Maya_SDK_py_ref_class_open_maya_1_1_m_int_array_html)
+
+## 使ってみる
+実際に使ってみます。
+- 選択コンポーネントの場合
+- すべてのコンポーネントの場合
+の2通りです。
+
+なお共通処理として、下記関数はすでに定義済みとします。
+```python
+def create_skincluster_fn():
+    # type: () -> (om2.MFnSkinCluster, om2.MDagPath, om2.MObject)
+    active_sel_list = om2.MGlobal.getActiveSelectionList() # type: om2.MSelectionList
+    dag_path, m_object_component = active_sel_list.getComponent(0) # type: (om2.MDagPath, om2.MObject)
+    mesh_dag_path = dag_path.extendToShape() # type: om2.MDagPath
+
+    skincluster_node = get_skincluster_node(mesh_dag_path.node()) # type: om2.MObject
+    skincluster_fn = oma2.MFnSkinCluster(skincluster_node) # type: om2.MFnSkinCluster
+
+    return skincluster_fn, mesh_dag_path, m_object_component
+
+def get_skincluster_node(mesh_node):
+    # type: (om2.MObject) -> om2.MObject
+    dg_iterator = om2.MItDependencyGraph(mesh_node, om2.MFn.kSkinClusterFilter, om2.MItDependencyGraph.kUpstream)
+    while not dg_iterator.isDone():
+        m_object = dg_iterator.currentNode()
+        if m_object.hasFn(om2.MFn.kSkinClusterFilter):
+            return m_object
+        dg_iterator.next()
+    return None
+
+def create_vertex_component():
+    # type: () -> om2.MObject
+    single_idx_comp = om2.MFnSingleIndexedComponent() # type: om2.MFnSingleIndexedComponent
+    return single_idx_comp.create(om2.MFn.kMeshVertComponent) # type: om2.MObject
+```
+
+### getWeights(shape, components)
+```選択コンポーネント.py
+def main():
+    skincluster_fn, mesh_dag_path, m_object_component = create_skincluster_fn()
+    skin_Weights = skincluster_fn.getWeights(mesh_dag_path, m_object_component)
+    print(skin_Weights)
+```
+
+```すべてのコンポーネント.py
+def main():
+    skincluster_fn, mesh_dag_path, _ = create_skincluster_fn()
+    skin_Weights = skincluster_fn.getWeights(mesh_dag_path, create_vertex_component())
+    print(skin_Weights)
+```
+
