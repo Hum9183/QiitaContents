@@ -40,10 +40,13 @@ import maya.api.OpenMayaAnim as oma2
 エイリアスをoma2としておくのがおすすめです。
 maya.api.OpenMayaも一緒に使うことが多いので一緒にインポートしておきます。
 
-# 大まかな手順
+# 大項目
+本記事では大きく分けて、
 1. MFnSkinClusterをインスタンス化する
 2. スキンウェイトをGetする
 3. スキンウェイトをSetする
+
+の3つについて解説します。
 
 # 1. MFnSkinClusterをインスタンス化する
 わりとややこしいので、サンプルコードを見ながら解説していきます。
@@ -83,7 +86,8 @@ if __name__ == '__main__':
 ```
 一つずつ解説していきます。
 
-### 1.1 イニシャライザの確認
+## 1.1 イニシャライザの確認
+インスタンス化する前に、まずはイニシャライザを確認します。
 MFnSkinClusterのイニシャライザのシグネチャは以下です。
 ```python
 def __init__(self, object):
@@ -92,24 +96,26 @@ def __init__(self, object):
 ```
 MFnSkinClusterの生成にはMObject型のインスタンスが必要になります。
 
-MFnSkinClusterに行き着くまでに色々な型を経由するのですが、
-大まかな流れは以下です。
-- バインドされたメッシュのインスタンス(MDagPath型)を生成
+MObject型のインスタンスを取得するためには色々な型を経由します。
+ざっくりまとめると以下のような流れになります。
+- バインドされたメッシュのインスタンス(MDagPath型)を取得
 ↓
-- スキンクラスターノードのインスタンス(MObject)を生成
+- スキンクラスターノードのインスタンス(MObject)を取得
 ↓
 - スキンクラスターノードのインスタンス(MFnSkinCluster型)を生成
+
+<font color="DeepPink">**TODO**</font>: この流れと1.2とかが一致してたほうが分かりやすいかも
 
 ちなみにPythonAPIのイニシャライザのシグネチャはリファレンスに載っていないため、
 C++のリファレンスを参照してください。
 [【Maya API C++ Reference】OpenMayaAnim.MFnSkinCluster](https://download.autodesk.com/us/maya/2009help/API/class_m_fn_skin_cluster.html)
 
-### 1.2 選択項目を取得
+## 1.2 選択項目を取得
 ```python
 def main():
     active_sel_list = om2.MGlobal.getActiveSelectionList() # type: om2.MSelectionList
 ```
-MDagPathを生成する前段階として、現在の選択項目を取得します。
+メッシュのMDagPathを取得する前段階として、現在の選択項目を取得します。
 OpenMayaでは、MGlobalクラスの**getActiveSelectionList**メソッドを使用します。
 これはmaya.cmdsでいうところのcmds.lsにあたります。
 返り値の型はlist[str]ではなくMSelectionList型です。
@@ -117,7 +123,7 @@ OpenMayaでは、MGlobalクラスの**getActiveSelectionList**メソッドを使
 [【Maya Python API 2.0 Reference】OpenMaya.MGlobal](https://help.autodesk.com/view/MAYAUL/2022/ENU/?guid=Maya_SDK_py_ref_class_open_maya_1_1_m_global_html)
 [【Maya Python API 2.0 Reference】OpenMaya.MSelectionList](https://help.autodesk.com/view/MAYAUL/2022/ENU/?guid=Maya_SDK_py_ref_class_open_maya_1_1_m_selection_list_html)
 
-### 1.3 MDagPathを取得
+## 1.3 MDagPathを取得
 ```diff_python
 def main():
     active_sel_list = om2.MGlobal.getActiveSelectionList() # type: om2.MSelectionList
@@ -127,7 +133,7 @@ MSelectionListクラスの**getDagPath**メソッドを使い、選択項目のM
 引数は取り出したい選択項目のIndexです（listの添字だと思ってください）
 今回は1つ目の選択項目から取り出したいため、0を渡します。
 
-### 1.4 メッシュのMDagPathを取得
+## 1.4 メッシュのMDagPathを取得
 ```diff_python
 def main():
     active_sel_list = om2.MGlobal.getActiveSelectionList() # type: om2.MSelectionList
@@ -139,7 +145,7 @@ MDagPathクラスの**extendToShape**メソッドでシェイプ(メッシュ)�
 
 [【Maya Python API 2.0 Reference】OpenMaya.MDagPath](https://help.autodesk.com/view/MAYAUL/2022/ENU/?guid=Maya_SDK_py_ref_class_open_maya_1_1_m_dag_path_html)
 
-### 1.5 skinClusterノードを取得(その1)
+## 1.5 skinClusterノードを取得(その1)
 ```diff_python
 def main():
     active_sel_list = om2.MGlobal.getActiveSelectionList() # type: om2.MSelectionList
@@ -156,7 +162,7 @@ def main():
 
 [【Maya Python Command Reference】listHistory](http://me.autodesk.jp/wam/maya/docs/Maya2010/CommandsPython/listHistory.html)
 
-### 1.6 skinClusterノードを取得(その2)
+## 1.6 skinClusterノードを取得(その2)
 ```diff_python
 def main():
     active_sel_list = om2.MGlobal.getActiveSelectionList() # type: om2.MSelectionList
@@ -174,12 +180,12 @@ def get_skincluster_node(mesh_node):
 +   return None
 ```
 ノードを探す処理は**MItDependencyGraph**クラスを使用します。
-ここではskinClusterノードを探したいため、イニシャライザの第2引数に**MFn.kSkinClusterFilter**を渡しています。
+ここではskinClusterノードを探したいため、イニシャライザの第2引数に**MFn.kSkinClusterFilter**を渡します。
 
 [【Maya Python API 2.0 Reference】OpenMaya.MItDependencyGraph](https://help.autodesk.com/view/MAYAUL/2022/ENU/?guid=Maya_SDK_py_ref_class_open_maya_1_1_m_it_dependency_graph_html)
 [【Maya Python API 2.0 Reference】OpenMaya.MFn](https://help.autodesk.com/view/MAYAUL/2022/ENU/?guid=Maya_SDK_py_ref_class_open_maya_1_1_m_fn_html)
 
-### 1.7 MFnSkinClusterを生成
+## 1.7 MFnSkinClusterを生成
 ```diff_python
 def main():
     active_sel_list = om2.MGlobal.getActiveSelectionList() # type: om2.MSelectionList
@@ -387,31 +393,41 @@ def main():
 ```名前がHeadとNeckの骨のスキンウェイトを取得する.py
 def main():
     skincluster_fn, mesh_dag_path, m_object_component = create_skincluster_fn()
-    head_infl_index = get_influence_index_by_name(skincluster_fn, 'Head')
     neck_infl_index = get_influence_index_by_name(skincluster_fn, 'Neck')
-    indices = om2.MIntArray([head_infl_index, neck_infl_index])
+    head_infl_index = get_influence_index_by_name(skincluster_fn, 'Head')
+    indices = om2.MIntArray([neck_infl_index, head_infl_index])
     head_neck_skin_Weights = skincluster_fn.getWeights(mesh_dag_path, m_object_component, indices)
     print(head_neck_skin_Weights)
 ```
 
 ## 2.3 取得したスキンウェイトデータの読み方
 getWeightsメソッドで取得したスキンウェイトデータはMDoubleArray型です。
-少し癖があるので、読み方を説明します。
 
-頂点が4つのメッシュとそれに骨を3つバインドしたデータで解説します。
+サンプルとして、骨を3つバインドしたメッシュで解説します。
+
+スキンウェイトは、
+- 頂点番号0と3 => Spineのウェイトが1.0
+- 頂点番号1 => Neckのウェイトが1.0
+- 頂点番号2 => Headのウェイトが1.0
+
+とします。
+
+なお骨のインデックスは、
+- Spine => 0
+- Neck => 1
+- Head  => 2
+
+です。
+
 
 ![MFnSkinCluster01.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/ebba1ab1-b281-e770-e75f-eb14ff0fcdd4.png)
 
 ![MFnSkinCluster02.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/34e6cb54-e44a-4a6b-7e52-073604a3cd14.png)
 
-## 2.3.1 getWeights(shape, components)
-返り値は(MDoubleArray, int)です。
+### 2.3.1 getWeights(shape, components)
+返り値の型は(MDoubleArray, int)のタプルです。
 
 #### MDoubleArray
-- 頂点番号0と3にSpineのウェイト
-- 頂点番号1にNeckのウェイト
-- 頂点番号2にHeadのウェイト
-を振ったもので確認してみます。
 
 ```python
 [
@@ -428,13 +444,78 @@ getWeightsメソッドで取得したスキンウェイトデータはMDoubleArr
     vtx3のidx0, vtx3のidx1, vtx3のidx2
 ]
 ```
-頂点1つのウェイトを骨のインデックス順に羅列されています。
-すべての骨のインデックスを羅列し終えたら、次の頂点の羅列が始まります。
+
+頂点1つのウェイトが骨のインデックス順に列挙されています。
+すべての骨のインデックスを羅列し終えたら、次の頂点の列挙が始まります。
+
+当然ですがComponentを指定している場合は、指定したComponentのみ列挙されます
+
+```頂点番号0と2のみを指定した場合.py
+[
+    1.0, 0.0, 0.0,
+    0.0, 0.0, 1.0
+]
+
+[
+    vtx0のidx0, vtx0のidx1, vtx0のidx2,
+    vtx2のidx0, vtx2のidx1, vtx2のidx2
+]
+```
+
 
 #### int
 ```
 3
 ```
 インフルエンス数が返ってきます。
+今回の場合は「Spine、Neck、Head」の3つなので3です。
 
-## 2.3.2 getWeights(shape, components, influence)
+### 2.3.2 getWeights(shape, components, influence)
+返り値の型はMDoubleArrayです。
+引数でinfluenceを指定しているので、int(インフルエンス数)は返ってきません。
+
+#### MDoubleArray
+基本的に他のオーバーロードと同じですが、
+influenceを指定しているので、指定した骨のウェイトのみが列挙されます。
+
+```Head骨のウェイトのみ.py
+[
+    0.0,
+    0.0,
+    1.0,
+    0.0
+]
+
+[
+    vtx0のidx2,
+    vtx1のidx2,
+    vtx2のidx2,
+    vtx3のidx2
+]
+```
+
+### 2.3.3 getWeights(shape, components, influences)
+返り値の型はMDoubleArrayです。
+
+#### MDoubleArray
+2.3.2とほぼ同じです。
+influenceが複数になります。
+
+```Neck骨とHead骨のウェイトのみ.py
+[
+    0.0, 0.0,
+    1.0, 0.0,
+    0.0, 1.0,
+    0.0, 0.0
+]
+
+[
+    vtx0のidx1, vtx0のidx2,
+    vtx1のidx1, vtx1のidx2,
+    vtx2のidx1, vtx2のidx2,
+    vtx3のidx1, vtx3のidx2
+]
+```
+
+# 3. スキンウェイトをSetする
+Getが分かったので、次はSetをしてみます。
