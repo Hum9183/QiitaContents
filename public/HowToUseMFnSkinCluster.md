@@ -212,7 +212,7 @@ def get_skincluster_node(mesh_node):
 インスタンスが用意できたので早速スキンウェイトをGetしてみます。
 GetするにはMFnSkinClusterクラスの**getWeights**メソッドを使用します。
 
-getWeightメソッドのシグネチャは以下です(オーバーロードが3つ)
+getWeightsメソッドのシグネチャは以下です(オーバーロードが3つ)
 ```diff_python
 def getWeights(shape, components):
     # type: (om2.MDagPath, om2.MObject) -> (om2.MDoubleArray, int)
@@ -224,6 +224,7 @@ def getWeights(shape, components, influences):
     # type: (om2.MDagPath, om2.MObject, om2.MIntArray) -> om2.MDoubleArray
     ...
 ```
+
 ## 2.1 引数解説
 1つずつ引数を確認していきます。
 
@@ -519,3 +520,23 @@ influenceが複数になります。
 
 # 3. スキンウェイトをSetする
 Getが分かったので、次はSetをしてみます。
+SetするにはMFnSkinClusterクラスの**setWeights**メソッドを使用します。
+
+setWeightsメソッドのシグネチャは以下です(オーバーロードが2つ)
+
+```python
+def setWeights(shape, components, influence, weight, normalize=True, returnOldWeights=False):
+    # type: (om2.MDagPath, om2.MObject, int, float, bool, bool) -> om2.MDoubleArray
+    ...
+def setWeights(shape, components, influences, weights, normalize=True, returnOldWeights=False):
+    # type: (om2.MDagPath, om2.MObject, MIntArray, MDoubleArray, bool, bool) -> om2.MDoubleArray
+    ...
+```
+
+## 3.1 引数解説
+1つずつ引数を確認していきます。
+
+### 3.1.1 shape
+>* shape (MDagPath) - object being deformed by the skinCluster
+
+バインドされたメッシュです。getWeightsと同じですね。
