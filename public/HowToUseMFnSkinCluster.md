@@ -276,7 +276,7 @@ vert_comp = single_idx_comp_fn.create(om2.MFn.kMeshVertComponent)   # type: om2.
 MFnSingleIndexedComponentクラスの**create**メソッドで生成します。
 
 ちなみに上記の例だと頂点(kMeshVertComponent)を指定していますが、
-エッジ(kMeshEdgeComponent)やフェース(kMeshEdgeComponent)でも問題ありません。
+エッジ(kMeshEdgeComponent)やフェース(kMeshPolygonComponent)でも問題ありません。
 
 
 
