@@ -385,8 +385,7 @@ def main():
 ```
 
 すべてのコンポーネントを取得する場合は下記になります。
-(ちなみにgetWeightsに限ってはオブジェクト選択状態ですべてのコンポーネントを取得できるので、
-上の記法でもすべてのコンポーネントを取得できます)
+(ちなみにgetWeightsに限ってはオブジェクト選択状態ですべてのコンポーネントを取得できるので、上記の記法でもすべてのコンポーネントを取得できます)
 ```スキンウェイトを取得する(すべてのコンポーネント).py
 def main():
     skincluster_fn, mesh_dag_path, _ = create_skincluster_fn()                          # type: (om2.MFnSkinCluster, om2.MDagPath, om2.MObject)
@@ -410,8 +409,8 @@ def main():
     neck_infl_index = get_influence_index_by_name(skincluster_fn, 'Neck')                               # type: int # Python2系はlong
     head_infl_index = get_influence_index_by_name(skincluster_fn, 'Head')                               # type: int # Python2系はlong
     infl_indices = om2.MIntArray([neck_infl_index, head_infl_index])                                    # type: om2.MIntArray
-    head_neck_skin_Weights = skincluster_fn.getWeights(mesh_dag_path, m_object_component, infl_indices) # type: (om2.MDoubleArray, int) # Python2系は(om2.MDoubleArray, long)
-    print(head_neck_skin_Weights)
+    neck_head_skin_Weights = skincluster_fn.getWeights(mesh_dag_path, m_object_component, infl_indices) # type: (om2.MDoubleArray, int) # Python2系は(om2.MDoubleArray, long)
+    print(neck_head_skin_Weights)
 ```
 
 ## 2.3 取得したスキンウェイトデータの読み方
@@ -657,10 +656,8 @@ def main():
     skincluster_fn.setWeights(mesh_dag_path, create_vertex_component(), head_infl_index, 1.0)
 ```
 
-setWeightsは、オブジェクト選択状態では、
-すべての頂点を選択した判定にはなりません。しっかりとコンポーネントを選択している必要があります。
-
-すべてのコンポーネントのスキンウェイトを設定したい場合は、
+setWeightsは、オブジェクト選択状態ではすべての頂点を選択した判定にはなりません。しっかりとコンポーネントを選択している必要があります。
+なので、すべてのコンポーネントのスキンウェイトを設定したい場合は、
 MFnSingleIndexedComponentで生成したMObjectを使うことをおすすめします。
 
 ### 3.2.2 setWeights(shape, components, influences, weights, normalize=True, returnOldWeights=False)
