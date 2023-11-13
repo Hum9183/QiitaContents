@@ -29,10 +29,10 @@ skinClusterからウェイト情報を取得したり設定することが出来
 
 # なぜOpenMayaなのか
 処理速度が圧倒的に速いためです。
-maya.cmdsにもスキンウェイト情報を操作出来るコマンド「**skinCluster**」がありますが、
+maya.cmdsにもスキンウェイト情報を操作出来るコマンド「**skinPercent**」がありますが、
 処理速度が遅いため、実用的なツール作成にはやや不向きです。
 
-[【Maya Python Command Reference】skinCluster](http://me.autodesk.jp/wam/maya/docs/Maya2009/CommandsPython/skinCluster.html)
+[【Maya Python Command Reference】skinPercent](http://me.autodesk.jp/wam/maya/docs/Maya2010/CommandsPython/skinPercent.html)
 
 # モジュールのインポート
 ```import_open_maya_2.py
