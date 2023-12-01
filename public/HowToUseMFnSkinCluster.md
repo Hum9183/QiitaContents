@@ -11,6 +11,9 @@ organization_url_name: null
 slide: false
 ignorePublish: false
 ---
+この記事はMayaアドベントカレンダー2023の2日目の記事です。
+https://qiita.com/advent-calendar/2023/maya
+
 # はじめに
 - この記事は**PythonAPI2.0**のMFnSkinClusterクラスの主要な使い方をまとめたものです。
 - MFnSkinClusterクラスを網羅的に解説したものではありません。
@@ -19,7 +22,7 @@ ignorePublish: false
 # 確認環境
 Maya 2024.1
 Maya 2020.4
-Maya 2018.7
+Maya 2018
 (PythonAPI2.0が動く環境であればどの環境でも問題ないと思います)
 
 # MFnSkinClusterとは
