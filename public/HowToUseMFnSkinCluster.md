@@ -4,15 +4,14 @@ tags:
   - Python
   - maya
   - OpenMaya
-private: true
-updated_at: '2023-12-01T21:01:42+09:00'
+private: false
+updated_at: '2023-12-02T07:01:26+09:00'
 id: 5705d8963e138ac8be35
 organization_url_name: null
 slide: false
 ignorePublish: false
 ---
 この記事はMayaアドベントカレンダー2023の2日目の記事です。
-
 https://qiita.com/advent-calendar/2023/maya
 
 # はじめに
@@ -698,8 +697,3 @@ MFnSkinClusterのすべてのメソッドを紹介したわけではありませ
 
 スキンウェイトデータが一次元の配列だったりと、少し癖がありますが、
 maya.cmdsとは比べ物にならないくらい爆速で動作するので、ぜひ使ってみてください。
-
-# 参考
-https://ueta.hateblo.jp/entry/2015/08/24/102937
-
-https://scrapbox.io/yosemite/api%E3%81%A7%E3%81%AE%E3%82%B3%E3%83%B3%E3%83%9D%E3%83%BC%E3%83%8D%E3%83%B3%E3%83%88%E3%81%AE%E5%8F%96%E3%82%8A%E6%89%B1%E3%81%84
