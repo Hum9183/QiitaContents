@@ -5,7 +5,7 @@ tags:
   - maya
   - OpenMaya
 private: false
-updated_at: '2023-12-02T07:01:26+09:00'
+updated_at: '2023-12-02T10:34:06+09:00'
 id: 5705d8963e138ac8be35
 organization_url_name: null
 slide: false
