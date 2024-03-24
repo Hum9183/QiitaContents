@@ -5,7 +5,7 @@ tags:
   - maya
   - OpenMaya
 private: false
-updated_at: '2023-12-02T10:34:06+09:00'
+updated_at: '2024-02-18T09:27:10+09:00'
 id: 5705d8963e138ac8be35
 organization_url_name: null
 slide: false
@@ -116,7 +116,7 @@ def create_skincluster_fn():
 ```
 メッシュのMDagPathを取得する前段階として、現在の選択項目を取得します。
 OpenMayaでは、MGlobalクラスの**getActiveSelectionList**メソッドを使用します。
-これはmaya.cmdsでいうところのcmds.lsにあたります。
+これはmaya.cmdsでいうところのcmds.ls(sl=True)にあたります。
 返り値の型はlist[str]ではなくMSelectionList型です。
 
 [【Maya Python API 2.0 Reference】OpenMaya.MGlobal](https://help.autodesk.com/view/MAYAUL/2022/ENU/?guid=Maya_SDK_py_ref_class_open_maya_1_1_m_global_html)
