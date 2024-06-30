@@ -27,7 +27,8 @@ ignorePublish: false
 - Autodesk Maya 2025.1 (Python 3.11.4)
 
 # 本記事のソースコード
-本記事では制作において詰まったところも含めて解説します(要は結構ゆっくり進行します)
+本記事では理屈での理解を促すためにわざと遠回りしたり、
+詰まったところも含めて解説します(要は結構ゆっくり進行します)
 先に完成品を見たい方はこちらをご覧ください。
 https://github.com/Hum9183/pyside_template_window
 
@@ -51,6 +52,8 @@ start.py(ScriptEditorから起動する用)
 またQtのPythonバインディングには`PyQt`というものもあるのですが、
 こちらは別物ですので注意が必要です(別物というほど別物ではないのですがライセンスが異なるので同一視してはいけません)
 
+ちなみにMayaのUIはQtで動いています。
+
 # 1. PySideでウィンドウを出す
 まずはPySideの普通のウィンドウを出してみます
 ```template_window.py
@@ -60,8 +63,7 @@ except ImportError:
     from PySide2.QtWidgets import QMainWindow
 
 class TemplateWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
+    pass
 ```
 普通のウィンドウを作る場合はQMainWindowを継承したクラスを作ります。
 Maya2025からはPySide6になっているため、importの書き方に気をつけてください。
@@ -117,7 +119,7 @@ window.show()
 たとえば上記のようにScriptEditorの一番上のスコープで直接インスタンス化&show()を実行すればすぐに消えません。
 (しかしGlobal空間を汚すことになるのであまり褒められた書き方ではありません)
 
-しかしながら後述するMayaのMainWindowとParent化することによっても消えなくなるので、
+しかしながら後述するMayaのMainWindowと親子付けすることによっても消えなくなるので、
 あまり気にしなくてもよいです。
 
 # 2. ボタンを追加する
@@ -134,15 +136,13 @@ except ImportError:
 +   from PySide2.QtWidgets import QMainWindow, QPushButton
 
 class TemplateWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-
-+   def init(self):
+-   pass
++   def init_gui(self):
 +       push_button = QPushButton('PUSH ME', self)
 +       self.setCentralWidget(push_button)
 ```
 
-run.pyではinit()を呼んでおきます。
+run.pyではinit_gui()を呼んでおきます。
 
 ```diff_python: run.py
 import sys
@@ -150,7 +150,7 @@ from .template_window import TemplateWindow
 
 def start() -> None:
     window = TemplateWindow()
-+   window.init()
++   window.init_gui()
     window.show()
     sys.exit()
 ```
@@ -173,21 +173,18 @@ except ImportError:
     from PySide2.QtWidgets import QMainWindow, QPushButton
 
 class TemplateWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-
-    def init(self):
+    def init_gui(self):
         push_button = QPushButton('PUSH ME', self)
-+       push_button.clicked.connect(lambda *arg: self.__hello_world())
++       push_button.clicked.connect(lambda *arg: self.__print_hello_world())
         self.setCentralWidget(push_button)
 
-+   def __hello_world(self):
++   def __print_hello_world(self):
 +       print('Hello, World!')
 ```
 `push_button.clicked`というのがシグナルです。`ボタンをクリックしたとき`ということですね。
 ほかにも様々な種類のシグナルがあるため、いろいろなことを引き金にして関数を呼び出すことができます。
 
-`lambda *arg: self.__hello_world()`というのがスロットです。
+`lambda *arg: self.__print_hello_world()`というのがスロットです。
 lambdaを使っている理由は引数がある関数を使えるようにするためです。
 今回は引数がない関数ですが、lambdaを付けたり消したりするとバグの元なので、私はどんなときでもlambdaを使っています。
 
@@ -205,10 +202,163 @@ Mayaの別の場所をクリックすると、ウィンドウが消えてしま�
 厳密に言えば消えたわけではなく、Mayaのウィンドウの後ろに行ってしまっただけです。
 しかしこれだととても使いづらいツールになってしまいます。
 
-# 3. MayaのMainWindowに親子付けする
+# 2.2 ウィンドウが後ろに行ってしまう原因
+冒頭で軽く触れましたが、**MayaのUIはQtで動いています**。
 
-TODO: 最初のほうのTemplateWindowクラスのイニシャライザはいらないかも。
-無い方が読者は頭に入ってきやすそう
+Qtのウィンドウが2つある状況を想像してみてほしいのですが、
+片方がアクティブになった場合、もう片方のウィンドウが後ろに隠れてしまうという挙動は自然に思えます。
+
+これを回避する場合、「片方のウィンドウをもう片方のウィンドウに親子付けする」という方法が考えられます。
+ということでMayaのMainWindowに親子付けします。
+
+ちなみに現在のウィンドウの親が何なのかを確認しておきましょう。
+```diff_python: template_window.py
+try:
+    from PySide6.QtWidgets import QMainWindow, QPushButton
+except ImportError:
+    from PySide2.QtWidgets import QMainWindow, QPushButton
+
+class TemplateWindow(QMainWindow):
+    def init_gui(self):
+        push_button = QPushButton('PUSH ME', self)
++       push_button.clicked.connect(lambda *arg: self.__print_parent())
+        self.setCentralWidget(push_button)
+
+    def __print_hello_world(self):
+        print('Hello, World!')
+
++   def __print_parent(self):
++       print(self.parent())
+```
+ためしに上記のように、ボタンのスロットを`親をprintする関数`に変更してみます。
+
+実行すると、
+![05.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/45b76eea-553f-7402-2720-cf7aed1306b3.gif)
+Noneのようです。
+
+# 3. MayaのMainWindowに親子付けする
+実はMayaのMainWindowに親子付けするための便利なクラスをAutodeskさんの方で用意してくれているのですが、
+ひとまずは理屈を理解するために自前で実装してみましょう。
+
+まず`MayaのMainWindow`の取り方ですが、
+```get_maya_main_window.py
+from maya import OpenMayaUI as omui
+maya_main_window_ptr = omui.MQtUtil.mainWindow()
+```
+で取ってくることができます。
+ちなみにこの`maya_main_window_ptr`の型は`SwigPyObject`です。
+built-inの型になっており、VSCodeやPyCharmのシンタックスハイライトは効きません。
+
+何者なのか調べるために`SwigPyObject`の__dict__をprintしてみます。
+```SwigPyObject.__dict__.py
+{
+    '__repr__': <slot wrapper '__repr__' of 'SwigPyObject' objects>,
+    '__getattribute__': <slot wrapper '__getattribute__' of 'SwigPyObject' objects>,
+    '__lt__': <slot wrapper '__lt__' of 'SwigPyObject' objects>,
+    '__le__': <slot wrapper '__le__' of 'SwigPyObject' objects>,
+    '__eq__': <slot wrapper '__eq__' of 'SwigPyObject' objects>,
+    '__ne__': <slot wrapper '__ne__' of 'SwigPyObject' objects>,
+    '__gt__': <slot wrapper '__gt__' of 'SwigPyObject' objects>,
+    '__ge__': <slot wrapper '__ge__' of 'SwigPyObject' objects>,
+    '__int__': <slot wrapper '__int__' of 'SwigPyObject' objects>,
+    'disown': <method 'disown' of 'SwigPyObject' objects>,
+    'acquire': <method 'acquire' of 'SwigPyObject' objects>,
+    'own': <method 'own' of 'SwigPyObject' objects>,
+    'append': <method 'append' of 'SwigPyObject' objects>,
+    'next': <method 'next' of 'SwigPyObject' objects>,
+    '__doc__': 'Swig object carries a C/C++ instance pointer',
+    '__hash__': None
+}
+```
+> '\_\_doc__': 'Swig object carries a C/C++ instance pointer'
+
+とあるのでC/C++のポインタを持つクラスのようですね。
+気になるポインタの取得方法ですが、__int__を持っているので、intにキャストすることで取得できるようです。
+```print_maya_main_window_ptr.py
+from maya import OpenMayaUI as omui
+maya_main_window_ptr = omui.MQtUtil.mainWindow()
+print(int(maya_main_window_ptr))
+```
+```output.txt
+2424978466992
+```
+PySideではポインタをそのまま扱うことができないため、`PySideで扱える型のインスタンス`に変換する必要があります。
+変換には`shiboken`というライブラリの`wrapInstance()`を使います。
+```diff_python: get_maya_main_window_qwidget.py
+from maya import OpenMayaUI as omui
+try:
+    from PySide6.QtWidgets import QMainWindow
++   from shiboken6 import wrapInstance
+except ImportError:
+    from PySide2.QtWidgets import QMainWindow
++   from shiboken2 import wrapInstance
+
+maya_main_window_ptr = omui.MQtUtil.mainWindow()
++maya_main_window: QMainWindow = wrapInstance(int(maya_main_window_ptr), QMainWindow)
+```
+wrapInstance()の第一引数には`インスタンスに変換したいポインタ`を、第二引数には`変換する型`を渡します。
+
+ということでMayaのMainWindowが取れたので早速親子付けしてみます。
+どうやって親子付けするかですが、これはシンプルに`QMainWindow`のイニシャライザで渡します。
+```diff_python: template_window.py
++from maya import OpenMayaUI as omui
+try:
+    from PySide6.QtWidgets import QMainWindow, QPushButton
++   from shiboken6 import wrapInstance
+except ImportError:
+    from PySide2.QtWidgets import QMainWindow, QPushButton
++   from shiboken2 import wrapInstance
+
+class TemplateWindow(QMainWindow):
++   def __init__(self):
++       maya_main_window_ptr = omui.MQtUtil.mainWindow()
++       maya_main_window = wrapInstance(int(maya_main_window_ptr), QMainWindow)
++       super().__init__(parent=maya_main_window)
+
+    def init_gui(self):
+        ...
+
+    def __print_hello_world(self):
+        ...
+```
+実行します。
+![06.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/e932353f-7494-c592-a81f-9bae5e259978.gif)
+Mayaをクリックしてもウィンドウが後ろに行かなくなりました。
+
+# 3.1 sys.exit()を削除する
+実はMayaのMainWindowに親子付けした時点でrun.pyのsys.exit()は必要なくなります。
+```diff_python: run.py
+-import sys
+from .template_window import TemplateWindow
+
+def start() -> None:
+    window = TemplateWindow()
+    window.init_gui()
+    window.show()
+-   sys.exit()
+```
+
+# 3.2 MayaQWidgetBaseMixinを継承する
+さて自前で実装して理解が深まったところで、
+あらかじめ言っていた通りAutodeskさんが用意してくれているクラスがあるので、そちらに置き換えましょう。
+
+先ほどは__init__()内で自前で親子付けしましたが、
+その代わりに`MayaQWidgetBaseMixin`を継承することでウィンドウが後ろに行かなくなります。
+```
+予定地
+```
+(書くかは未定)：Mixinとは
+# TODO:
+objectName()とmaya.OpenMayaUI.MQtUtil.findControl()の絡みがあるので、
+MayaQWidgetBaseMixinを継承するのはもう少しあとでいいかもしれない
+
+
+
+# メモ
+>ウィジェットを使用し、maya.OpenMayaUI.MQtUtil.findControl() からルックアップできるようにするには、ウィジェットに一意の objectName() が必要です。
+https://help.autodesk.com/view/MAYADEV/2025/JPN/?guid=Maya_DEVHELP_Maya_Python_API_Working_with_PySide_in_Maya_html
+
+http://leavebehind.iobb.net/wordpress/2016/12/14/mac%E7%89%88mayapyside%E3%81%A7%E4%BD%9C%E6%88%90%E3%81%97%E3%81%9F%E3%82%A6%E3%82%A3%E3%83%B3%E3%83%89%E3%82%A6%E3%81%8C%E3%83%A1%E3%82%A4%E3%83%B3%E3%82%A6%E3%82%A3%E3%83%B3%E3%83%89%E3%82%A6/
 
 # 参考
 https://tommy-on.hatenablog.com/entry/2019/04/14/231938
