@@ -18,6 +18,7 @@ ignorePublish: false
 
 # 対象読者
 - PySideのことはよくわからないけど、とりあえずウィンドウをつくってみたい人
+- PySideのウィンドウについて理屈から理解したい人
 - reloadできるウィンドウをつくりたい人
 - Dockableなウィンドウをつくりたい人
 - Restoreできるウィンドウをつくりたい人
@@ -28,7 +29,7 @@ ignorePublish: false
 
 # 本記事のソースコード
 本記事では理屈での理解を促すためにわざと遠回りしたり、
-詰まったところも含めて解説します(要は結構ゆっくり進行します)
+詰まったところも含めて解説します(要は長いです)
 先に完成品を見たい方はこちらをご覧ください。
 https://github.com/Hum9183/pyside_template_window
 
@@ -165,7 +166,7 @@ def start() -> None:
 
 https://www.qt.io/ja-jp/blog/2010/06/17/signals-and-slots
 
-今回はボタンを押したら`Hello, World!`がprintされるスロットを接続します。
+今回は`Hello, World!がprintされるスロット`を接続します。
 ```diff_python: template_window.py
 try:
     from PySide6.QtWidgets import QMainWindow, QPushButton
@@ -211,31 +212,6 @@ Qtのウィンドウが2つある状況を想像してみてほしいのです�
 これを回避する場合、「片方のウィンドウをもう片方のウィンドウに親子付けする」という方法が考えられます。
 ということでMayaのMainWindowに親子付けします。
 
-ちなみに現在のウィンドウの親が何なのかを確認しておきましょう。
-```diff_python: template_window.py
-try:
-    from PySide6.QtWidgets import QMainWindow, QPushButton
-except ImportError:
-    from PySide2.QtWidgets import QMainWindow, QPushButton
-
-class TemplateWindow(QMainWindow):
-    def init_gui(self):
-        push_button = QPushButton('PUSH ME', self)
-+       push_button.clicked.connect(lambda *arg: self.__print_parent())
-        self.setCentralWidget(push_button)
-
-    def __print_hello_world(self):
-        print('Hello, World!')
-
-+   def __print_parent(self):
-+       print(self.parent())
-```
-ためしに上記のように、ボタンのスロットを`親をprintする関数`に変更してみます。
-
-実行すると、
-![05.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/45b76eea-553f-7402-2720-cf7aed1306b3.gif)
-Noneのようです。
-
 # 3. MayaのMainWindowに親子付けする
 実はMayaのMainWindowに親子付けするための便利なクラスをAutodeskさんの方で用意してくれているのですが、
 ひとまずは理屈を理解するために自前で実装してみましょう。
@@ -248,6 +224,7 @@ maya_main_window_ptr = omui.MQtUtil.mainWindow()
 で取ってくることができます。
 ちなみにこの`maya_main_window_ptr`の型は`SwigPyObject`です。
 built-inの型になっており、VSCodeやPyCharmのシンタックスハイライトは効きません。
+TODO: ↑本当か調べる
 
 何者なのか調べるために`SwigPyObject`の__dict__をprintしてみます。
 ```SwigPyObject.__dict__.py
@@ -288,13 +265,13 @@ PySideではポインタをそのまま扱うことができないため、`PySi
 from maya import OpenMayaUI as omui
 try:
     from PySide6.QtWidgets import QMainWindow
-+   from shiboken6 import wrapInstance
+    from shiboken6 import wrapInstance
 except ImportError:
     from PySide2.QtWidgets import QMainWindow
-+   from shiboken2 import wrapInstance
+    from shiboken2 import wrapInstance
 
 maya_main_window_ptr = omui.MQtUtil.mainWindow()
-+maya_main_window: QMainWindow = wrapInstance(int(maya_main_window_ptr), QMainWindow)
+maya_main_window: QMainWindow = wrapInstance(int(maya_main_window_ptr), QMainWindow)
 ```
 wrapInstance()の第一引数には`インスタンスに変換したいポインタ`を、第二引数には`変換する型`を渡します。
 
