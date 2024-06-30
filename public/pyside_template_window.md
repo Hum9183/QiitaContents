@@ -43,7 +43,7 @@ pyside_template_window/
 start.py(ScriptEditorから起動する用)
 
 # 0. PySideとは
-`Qt`というC++で書かれたフレームワークのPythonバインディング(Pythonで使えるようにしたもの)です。
+`Qt(キュート)`というC++で書かれたフレームワークのPythonバインディング(Pythonで使えるようにしたもの)です。
 
 なおQtはGUI以外にもいろいろな機能があるのですが、
 ことMayaのツール作成で使う場合においてはシンプルに`GUIライブラリ`と捉えても問題ないと思います。
@@ -122,7 +122,8 @@ window.show()
 
 # 2. ボタンを追加する
 ただのウィンドウでは味気ないのでボタンを追加します。
-QtではボタンなどのGUIの部品を`ウィジェット(Widget)`と呼びます。
+QtではボタンなどのGUIの部品を`Widget`と呼びます。
+このWidgetを追加することによって好みのGUIを作成していくことになります。
 
 ボタンはQPushButtonというクラスを使います。
 QPushButtonのインスタンスをsetCentralWidget()することでボタンをセットすることができます。
@@ -158,12 +159,13 @@ def start() -> None:
 うまくいっているようです。
 
 # 2.1 ボタンにスロットを接続する
-スロットとはボタンに変更(シグナル)があった場合に実行される関数のことです。
+現在のボタンは押しても何も起きないのでスロットを接続します。
+スロットというのはオブジェクトに変更(シグナル)があった場合に実行される関数のことです。
 コールバック関数と言ったほうが馴染み深い人もいるかもしれません。
 
 https://www.qt.io/ja-jp/blog/2010/06/17/signals-and-slots
 
-今回はボタンを押したら`Hello, World!`がprintされるようなスロットを設定します。
+今回はボタンを押したら`Hello, World!`がprintされるスロットを接続します。
 ```diff_python: template_window.py
 try:
     from PySide6.QtWidgets import QMainWindow, QPushButton
@@ -205,6 +207,8 @@ Mayaの別の場所をクリックすると、ウィンドウが消えてしま�
 
 # 3. MayaのMainWindowに親子付けする
 
+TODO: 最初のほうのTemplateWindowクラスのイニシャライザはいらないかも。
+無い方が読者は頭に入ってきやすそう
 
 # 参考
 https://tommy-on.hatenablog.com/entry/2019/04/14/231938
