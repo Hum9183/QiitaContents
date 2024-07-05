@@ -320,11 +320,51 @@ def start() -> None:
 あらかじめ言っていた通りAutodeskさんが用意してくれているクラスがあるので、そちらに置き換えましょう。
 
 先ほどは__init__()内で自前で親子付けしましたが、
-その代わりに`MayaQWidgetBaseMixin`を継承することでウィンドウが後ろに行かなくなります。
+その代わりに`MayaQWidgetBaseMixin`を継承することでshow()を呼んだ際に親子付けをしてくれます。
+
+```diff_python: template_window.py
+-from maya import OpenMayaUI as omui
++from maya.app.general.mayaMixin import MayaQWidgetBaseMixin
+
+...(import PySide etc.)
+
+-class TemplateWindow(QMainWindow):
++class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
+    def __init__(self):
+-       maya_main_window_ptr = omui.MQtUtil.mainWindow()
+-       maya_main_window = wrapInstance(int(maya_main_window_ptr), QMainWindow)
+-       super().__init__(parent=maya_main_window)
++       super().__init__()
+
+    def init_gui(self):
+        ...
+
+    def __print_hello_world(self):
+        ...
 ```
-予定地
+1つ注意点として`MayaQWidgetBaseMixin`の記載順があります。
+今は`MayaQWidgetBaseMixin` -> `QMainWindow`の順番で記載しましたが、
+これを逆にすると意図した動きになりません。
+```diff_python: template_window.py
+-class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
++class TemplateWindow(QMainWindow, MayaQWidgetBaseMixin):
 ```
-(書くかは未定)：Mixinとは
+![07.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/f07dfc3f-6746-0119-b0d4-5aa22609cc6d.gif)
+
+この問題は菱形継承問題といいます。
+
+https://ja.wikipedia.org/wiki/%E8%8F%B1%E5%BD%A2%E7%B6%99%E6%89%BF%E5%95%8F%E9%A1%8C
+
+現在`TemplateWindow`は`QMainWindow`と`MayaQWidgetBaseMixin`の２つを継承しています。
+これを**多重継承**といいます。
+
+この状況で`super().__init__()`を呼んだ場合、`QMainWindow`と`MayaQWidgetBaseMixin`
+のどちらの`__init__()`が呼ばれるのでしょうか？
+
+この結果はプログラミング言語によって異なるのですが、
+Pythonの場合は、
+
+
 # TODO:
 objectName()とmaya.OpenMayaUI.MQtUtil.findControl()の絡みがあるので、
 MayaQWidgetBaseMixinを継承するのはもう少しあとでいいかもしれない
