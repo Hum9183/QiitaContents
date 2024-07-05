@@ -138,7 +138,7 @@ except ImportError:
 
 class TemplateWindow(QMainWindow):
 -   pass
-+   def init_gui(self):
++   def init_gui(self) -> None:
 +       push_button = QPushButton('PUSH ME', self)
 +       self.setCentralWidget(push_button)
 ```
@@ -174,12 +174,12 @@ except ImportError:
     from PySide2.QtWidgets import QMainWindow, QPushButton
 
 class TemplateWindow(QMainWindow):
-    def init_gui(self):
+    def init_gui(self) -> None:
         push_button = QPushButton('PUSH ME', self)
 +       push_button.clicked.connect(lambda *arg: self.__print_hello_world())
         self.setCentralWidget(push_button)
 
-+   def __print_hello_world(self):
++   def __print_hello_world(self) -> None:
 +       print('Hello, World!')
 ```
 `push_button.clicked`というのがシグナルです。`ボタンをクリックしたとき`ということですね。
@@ -287,15 +287,15 @@ except ImportError:
 +   from shiboken2 import wrapInstance
 
 class TemplateWindow(QMainWindow):
-+   def __init__(self):
++   def __init__(self) -> None:
 +       maya_main_window_ptr = omui.MQtUtil.mainWindow()
 +       maya_main_window = wrapInstance(int(maya_main_window_ptr), QMainWindow)
 +       super().__init__(parent=maya_main_window)
 
-    def init_gui(self):
+    def init_gui(self) -> None:
         ...
 
-    def __print_hello_world(self):
+    def __print_hello_world(self) -> None:
         ...
 ```
 実行します。
@@ -330,19 +330,19 @@ def start() -> None:
 
 -class TemplateWindow(QMainWindow):
 +class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
-    def __init__(self):
+    def __init__(self) -> None:
 -       maya_main_window_ptr = omui.MQtUtil.mainWindow()
 -       maya_main_window = wrapInstance(int(maya_main_window_ptr), QMainWindow)
 -       super().__init__(parent=maya_main_window)
 +       super().__init__()
 
-    def init_gui(self):
+    def init_gui(self) -> None:
         ...
 
-    def __print_hello_world(self):
+    def __print_hello_world(self) -> None:
         ...
 ```
-1つ注意点として`MayaQWidgetBaseMixin`の記載順があります。
+1つ注意点として`MayaQWidgetBaseMixin`の継承の記載順があります。
 今は`MayaQWidgetBaseMixin` -> `QMainWindow`の順番で記載しましたが、
 これを逆にすると意図した動きになりません。
 ```diff_python: template_window.py
