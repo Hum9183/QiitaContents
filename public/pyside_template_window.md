@@ -91,7 +91,9 @@ if __name__ == '__main__':
 start.pyはScriptEditorで実行する文です。
 
 それでは実行してみます
+
 ![01.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/81eb32fb-081f-ea26-a499-a0f73f2d7436.gif)
+
 一瞬ウィンドウが表示されるものの、
 すぐに消えてしまいました。
 
@@ -106,10 +108,12 @@ def start() -> None:
 +   sys.exit()
 ```
 実行してみます。
+
 ![02.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/4c548383-5d48-df8f-ffb9-f82663091411.gif)
+
 今度は消えなくなりました。
 
-# 1.1 sys.exit()が必要な理由
+## 1.1 sys.exit()が必要な理由
 いろいろと調べたのですが正直分かりませんでした。
 有識者の方、コメントお待ちしております。
 
@@ -159,10 +163,12 @@ def start() -> None:
     sys.exit()
 ```
 実行すると、
+
 ![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/1f0ee91f-b8fd-239c-53c1-f8e9cd4cb039.png)
+
 うまくいっているようです。
 
-# 2.1 ボタンにスロットを接続する
+## 2.1 ボタンにスロットを接続する
 現在のボタンは押しても何も起きないのでスロットを接続します。
 スロットというのはオブジェクトに変更(シグナル)があった場合に実行される関数のことです。
 コールバック関数と言ったほうが馴染み深い人もいるかもしれません。
@@ -197,16 +203,20 @@ lambdaを使っている理由は引数がある関数を使えるようにす�
 https://docs.python.org/ja/3.5/library/asyncio-eventloop.html#calls
 
 さてシグナルとスロットの説明はほどほどに、実際に動かしてみます。
+
 ![03.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/5274923a-5050-99b3-b728-79259230fab4.gif)
+
 大丈夫そうですね。
 
 しかしちょっと待ってください。
 Mayaの別の場所をクリックすると、ウィンドウが消えてしまいました。
+
 ![04.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/137a6cd4-9b3d-f7dd-22ee-c4ce38d9af51.gif)
+
 厳密に言えば消えたわけではなく、Mayaのウィンドウの後ろに行ってしまっただけです。
 しかしこれだととても使いづらいツールになってしまいます。
 
-# 2.2 ウィンドウが後ろに行ってしまう原因
+## 2.2 ウィンドウが後ろに行ってしまう原因
 冒頭で軽く触れましたが、**MayaのUIはQtで動いています**。
 
 Qtのウィンドウが2つある状況を想像してみてほしいのですが、
@@ -302,10 +312,12 @@ class TemplateWindow(QMainWindow):
         ...
 ```
 実行します。
+
 ![06.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/e932353f-7494-c592-a81f-9bae5e259978.gif)
+
 Mayaをクリックしてもウィンドウが後ろに行かなくなりました。
 
-# 3.1 sys.exit()を削除する
+## 3.1 sys.exit()を削除する
 実はMayaのMainWindowに親子付けした時点でrun.pyのsys.exit()は必要なくなります。
 ```diff_python: run.py
 -import sys
@@ -318,7 +330,7 @@ def start() -> None:
 -   sys.exit()
 ```
 
-# 3.2 MayaQWidgetBaseMixinを継承する
+## 3.2 MayaQWidgetBaseMixinを継承する
 さて自前で実装して理解が深まったところで、
 あらかじめ言っていた通りAutodeskさんが用意してくれているクラスがあるので、そちらに置き換えましょう。
 
@@ -346,6 +358,7 @@ def start() -> None:
 -class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
 +class TemplateWindow(QMainWindow, MayaQWidgetBaseMixin):
 ```
+
 ![07.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/f07dfc3f-6746-0119-b0d4-5aa22609cc6d.gif)
 
 この問題は菱形継承問題といいます。
@@ -410,7 +423,7 @@ TemplateWindowBは7番目に`MayaQWidgetBaseMixin`が来ています。
 というわけで継承の記載順には気をつける必要があります。
 もちろん継承の記載順はC3の一部に過ぎないということも忘れてはいけません。
 
-# 3.3 イニシャライザの仮引数を整える
+## 3.3 イニシャライザの仮引数を整える
 現在のTemplateWindowのイニシャライザは仮引数がありませんが、
 `MayaQWidgetBaseMixin`のイニシャライザには仮引数があります。
 ```mayaMixin.py
@@ -431,12 +444,14 @@ class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
 
 # 4. 2つ以上起動できないようにする
 実は今の状態だと起動するたびに新規のウィンドウが生成されます。
+
 ![09.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/7e1f3a67-4ba3-cf18-6f56-b8a7a2941cda.gif)
+
 スタンダードなツールは多重で起動はできないものだと思います。
 
 トラブルになりかねないので直していきます。
 
-# 4.1 ウィンドウに名前を設定する
+## 4.1 ウィンドウに名前を設定する
 `omui.MQtUtil.findControl()`を使うことで一意のウィンドウのポインタを取得することができます。
 しかしこの関数の引数には`ウィンドウの名前`を渡す必要があります。
 このウィンドウにはなんだかんだで名前が設定されていませんでした。
@@ -470,7 +485,7 @@ def start() -> None:
 `init()`というメソッドを用意し、`setObjectName()`を実行するようにしました。
 これでウィンドウの名前を設定できました。
 
-# 4.2 すでにウィンドウが存在するかを判定する
+## 4.2 すでにウィンドウが存在するかを判定する
 ```diff_python: run.py
 +from maya import OpenMayaUI as omui
 from .template_window import TemplateWindow
@@ -488,13 +503,17 @@ def start() -> None:
 +       print(f'すでに{TemplateWindow.name}が存在しています')
 ```
 実行してみます。
+
 ![10.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/7a6f5945-b015-ac38-2d62-418556f566b7.gif)
+
 うまく行っているようです。
 
-# 4.2 ないけどある場合
+## 4.3 ないけどある場合
 一度ウィンドウを閉じたあとでもう一度起動すると、
 すでにウィンドウが存在すると言われてしまいます。
+
 ![11.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/e23b81e5-a6e1-276a-3926-0b0d080d52ea.gif)
+
 これはどちらかというとQtの仕様の話になるのですが、
 Qtは**ウィンドウを閉じた際にインスタンスは破棄されません。非表示になっているだけです。**
 なのでそれも加味した処理を作る必要があります。
@@ -525,7 +544,61 @@ Falseの場合は`setVisible(True)`を呼び再表示します。
 TODO: この時点のソースコードだと再フォーカスがうまく効かないかも、
 何をしたら効くようになるのか調べる
 
-# 5. reloadできるようにする
+## 4.4 リファクタ
+TemplateWindowインスタンスに関する処理は今後もよく使うので関数化してしまいましょう。
+```diff_python: run.py
+def start() -> None:
+    # 現在のMaya内に存在するTemplateWindowのポインタを取得する
+    ptr = omui.MQtUtil.findControl(TemplateWindow.name)
+    if ptr is None:  # ない場合
+        print(f'{TemplateWindow.name}が存在しないため生成します')
+-       window = TemplateWindow()
+-       window.init()
+-       window.init_gui()
++       window = __create_window()
+        window.show()
+    else:  # ある場合
+        print(f'すでに{TemplateWindow.name}が存在しています')
+        if window.isVisible():
+            print('すでに表示されています')
+        else:
+            print('再表示します')
+            window.setVisible(True)
+
++def __create_window() -> TemplateWindow:
++   window = TemplateWindow()
++   window.init()
++   window.init_gui()
++   return window
+```
+
+# 4.5 タイトルをつける
+いまさら感がありますが、今のウィンドウにはタイトルがついていません。
+
+![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/270fa527-6d66-1522-09d8-a246254924b8.png)
+
+Maya-20xxという無機質なタイトルが設定されています。
+
+お好みのタイトルを付けてしまいましょう。
+```diff_python: template_window.py
+class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
+    name = 'PysideTemplate'
++   title = 'PySide Template'
+    def init(self):
+        self.setObjectName(TemplateWindow.name)
++       self.setWindowTitle(TemplateWindow.title)
+```
+
+![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/f73fda34-0667-93a5-c0de-49ccf0f39f47.png)
+
+# 5. ドッキングできるようにする
+Mayaの標準的なウィンドウではほかのGUIとドッキングをすることができます。
+
+![13.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/2d345d15-5d01-db25-705e-c14a7da8f562.gif)
+
+現在のTemplateWindowではもちろんできません。
+
+# 6. reloadできるようにする
 Maya上でPythonツールを開発する際、
 ソースコードを変更するたびにMayaを立ち上げるのは大変です。
 これを解消するためにはreload()を使うことになります。
@@ -533,12 +606,12 @@ Maya上でPythonツールを開発する際、
 cmdsを用いた開発でもお世話になった方も多いと思いますが、
 PySideでも使います。
 
-# 5.1 reloadタイミング
+## 6.1 reloadタイミング
 よくあるのはウィンドウの起動時に必ずreloadをするというアプローチです。
 **ですが本記事ではMayaの標準的なウィンドウと同挙動のウィンドウを目指します。**
 なので別途reloadボタンを用意し、そのスロットでreloadするような挙動を実装します。
 
-# 5.2 reloadボタンを実装する
+## 6.2 reloadボタンを実装する
 MenuBarを使って実装していきます。
 ```diff_python: template_window.py
 try:
@@ -572,7 +645,7 @@ class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
 実行すると下図のようになります。
 ![08.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/a7deb285-225d-be20-f5e9-17c3acd930bf.gif)
 
-# 5.3 reloadボタンのスロットを実装する
+## 6.3 reloadボタンのスロットを実装する
 実際にreload()するスロットを実装していきます。
 処理はrun.pyに関数として実装します。
 
@@ -580,8 +653,6 @@ class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
 # TODO:
 objectName()とmaya.OpenMayaUI.MQtUtil.findControl()の絡みがあるので、
 MayaQWidgetBaseMixinを継承するのはもう少しあとでいいかもしれない
-
-
 
 # メモ
 >ウィジェットを使用し、maya.OpenMayaUI.MQtUtil.findControl() からルックアップできるようにするには、ウィジェットに一意の objectName() が必要です。
