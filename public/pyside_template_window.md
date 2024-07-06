@@ -16,6 +16,9 @@ ignorePublish: false
 - PySideを使用します
 - **Mayaの標準的なウィンドウ(NodeEditorやScriptEditorなど)と同じように動作することを目指します**
 
+# 注意
+- 本記事内のソースコードは尺の都合上、一部(import文や焦点があたっていないメソッドなど)を省略することがあります
+
 # 対象読者
 - PySideのことはよくわからないけど、とりあえずウィンドウをつくってみたい人
 - PySideのウィンドウについて理屈から理解したい人
@@ -335,16 +338,10 @@ def start() -> None:
 -       maya_main_window = wrapInstance(int(maya_main_window_ptr), QMainWindow)
 -       super().__init__(parent=maya_main_window)
 +       super().__init__()
-
-    def init_gui(self) -> None:
-        ...
-
-    def __print_hello_world(self) -> None:
-        ...
 ```
 1つ注意点として`MayaQWidgetBaseMixin`の継承の記載順があります。
 今は`MayaQWidgetBaseMixin` -> `QMainWindow`の順番で記載しましたが、
-これを逆にすると意図した動きになりません。
+これを逆にすると親子付けがされません。
 ```diff_python: template_window.py
 -class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
 +class TemplateWindow(QMainWindow, MayaQWidgetBaseMixin):
@@ -362,7 +359,222 @@ https://ja.wikipedia.org/wiki/%E8%8F%B1%E5%BD%A2%E7%B6%99%E6%89%BF%E5%95%8F%E9%A
 のどちらの`__init__()`が呼ばれるのでしょうか？
 
 この結果はプログラミング言語によって異なるのですが、
-Pythonの場合は、
+Pythonの場合はC3というアルゴリズムを使用しています(Python2.3以降)
+
+https://www.python.org/download/releases/2.3/mro/
+
+またこの順番のことをMRO(Method Resolution Order)といいます。
+MROは実際のPythonで確認することができます。
+
+```method_resolution_order_sample.py
+from maya.app.general.mayaMixin import MayaQWidgetBaseMixin
+from PySide2.QtWidgets import QMainWindow, QPushButton
+
+class TemplateWindowA(MayaQWidgetBaseMixin, QMainWindow):
+    ...
+
+class TemplateWindowB(QMainWindow, MayaQWidgetBaseMixin):
+    ...
+
+print(TemplateWindowA.__mro__)
+print(TemplateWindowB.__mro__)
+```
+```output.txt
+(
+    <class '__main__.TemplateWindowA'>,
+    <class 'maya.app.general.mayaMixin.MayaQWidgetBaseMixin'>,
+    <class 'PySide2.QtWidgets.QMainWindow'>,
+    <class 'PySide2.QtWidgets.QWidget'>,
+    <class 'PySide2.QtCore.QObject'>,
+    <class 'PySide2.QtGui.QPaintDevice'>,
+    <class 'Shiboken.Object'>,
+    <class 'object'>
+)
+(
+    <class '__main__.TemplateWindowB'>,
+    <class 'PySide2.QtWidgets.QMainWindow'>,
+    <class 'PySide2.QtWidgets.QWidget'>,
+    <class 'PySide2.QtCore.QObject'>,
+    <class 'PySide2.QtGui.QPaintDevice'>,
+    <class 'Shiboken.Object'>,
+    <class 'maya.app.general.mayaMixin.MayaQWidgetBaseMixin'>,
+    <class 'object'>
+)
+```
+TemplateWindowAは2番目に`MayaQWidgetBaseMixin`が来ていますが、
+TemplateWindowBは7番目に`MayaQWidgetBaseMixin`が来ています。
+
+これはつまりTemplateWindowBでは__init__()やshow()が呼ばれたときに、
+`MayaQWidgetBaseMixin`のメソッドではなく`QMainWindow`のメソッドが呼ばれることを意味しています。
+
+というわけで継承の記載順には気をつける必要があります。
+もちろん継承の記載順はC3の一部に過ぎないということも忘れてはいけません。
+
+# 3.3 イニシャライザの仮引数を整える
+現在のTemplateWindowのイニシャライザは仮引数がありませんが、
+`MayaQWidgetBaseMixin`のイニシャライザには仮引数があります。
+```mayaMixin.py
+class MayaQWidgetBaseMixin(object):
+    def __init__(self, parent=None, *args, **kwargs):
+        super(MayaQWidgetBaseMixin, self).__init__(parent=parent, *args, **kwargs)
+        self._initForMaya(parent=parent)
+```
+TemplateWindowで仮引数を埋めてしまうのはあまりお行儀が良い書き方とは言えないので、
+TemplateWindowのイニシャライザでも仮引数も渡せるようにしておきましょう。
+```diff_python: template_window.py
+class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
+-   def __init__(self) -> None:
+-       super().__init__()
++   def __init__(self, parent=None, *args, **kwargs) -> None:
++       super().__init__(parent=parent, *args, **kwargs)
+```
+
+# 4. 2つ以上起動できないようにする
+実は今の状態だと起動するたびに新規のウィンドウが生成されます。
+![09.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/7e1f3a67-4ba3-cf18-6f56-b8a7a2941cda.gif)
+スタンダードなツールは多重で起動はできないものだと思います。
+
+トラブルになりかねないので直していきます。
+
+# 4.1 ウィンドウに名前を設定する
+`omui.MQtUtil.findControl()`を使うことで一意のウィンドウのポインタを取得することができます。
+しかしこの関数の引数には`ウィンドウの名前`を渡す必要があります。
+このウィンドウにはなんだかんだで名前が設定されていませんでした。
+名前はウィンドウを識別する上でかなり重要な要素になるので、しっかりと設定していきます。
+
+https://help.autodesk.com/view/MAYADEV/2025/JPN/?guid=Maya_DEVHELP_Maya_Python_API_Working_with_PySide_in_Maya_html
+
+```diff_python: template_window.py
+class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
++   name = 'PysideTemplate'
+
+    def __init__(self, parent=None, *args, **kwargs) -> None:
+        super().__init__(parent=parent, *args, **kwargs)
+
++   def init(self) -> None:
++       self.setObjectName(TemplateWindow.name)
+
+    def init_gui(self) -> None:
+        ...
+
+    def __print_hello_world(self) -> None:
+        ...
+```
+```diff_python: run.py
+def start() -> None:
+    window = TemplateWindow()
++   window.init()
+    window.init_gui()
+    window.show()
+```
+`init()`というメソッドを用意し、`setObjectName()`を実行するようにしました。
+これでウィンドウの名前を設定できました。
+
+# 4.2 すでにウィンドウが存在するかを判定する
+```diff_python: run.py
++from maya import OpenMayaUI as omui
+from .template_window import TemplateWindow
+
+def start() -> None:
++   # 現在のMaya内に存在するTemplateWindowのポインタを取得する
++   ptr = omui.MQtUtil.findControl(TemplateWindow.name)
++   if ptr is None:  # ない場合
++       print(f'{TemplateWindow.name}が存在しないため生成します')
+        window = TemplateWindow()
+        window.init()
+        window.init_gui()
+        window.show()
++   else: # ある場合
++       print(f'すでに{TemplateWindow.name}が存在しています')
+```
+実行してみます。
+![10.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/7a6f5945-b015-ac38-2d62-418556f566b7.gif)
+うまく行っているようです。
+
+# 4.2 ないけどある場合
+一度ウィンドウを閉じたあとでもう一度起動すると、
+すでにウィンドウが存在すると言われてしまいます。
+![11.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/e23b81e5-a6e1-276a-3926-0b0d080d52ea.gif)
+これはどちらかというとQtの仕様の話になるのですが、
+Qtは**ウィンドウを閉じた際にインスタンスは破棄されません。非表示になっているだけです。**
+なのでそれも加味した処理を作る必要があります。
+
+```diff_python: run.py
+def start() -> None:
+    # 現在のMaya内に存在するTemplateWindowのポインタを取得する
+    ptr = omui.MQtUtil.findControl(TemplateWindow.name)
+    if ptr is None:  # ない場合
+        print(f'{TemplateWindow.name}が存在しないため生成します')
+        window = TemplateWindow()
+        window.init()
+        window.init_gui()
+        window.show()
+    else:  # ある場合
+        print(f'すでに{TemplateWindow.name}が存在しています')
++       if window.isVisible():
++           print('すでに表示されています')
++       else:
++           print('再表示します')
++           window.setVisible(True)
+```
+ポインタが存在する場合は`isVisible()`を呼び、
+Falseの場合は`setVisible(True)`を呼び再表示します。
+
+![12.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/cdd5ebae-1da7-5139-be39-06a342010731.gif)
+
+TODO: この時点のソースコードだと再フォーカスがうまく効かないかも、
+何をしたら効くようになるのか調べる
+
+# 5. reloadできるようにする
+Maya上でPythonツールを開発する際、
+ソースコードを変更するたびにMayaを立ち上げるのは大変です。
+これを解消するためにはreload()を使うことになります。
+
+cmdsを用いた開発でもお世話になった方も多いと思いますが、
+PySideでも使います。
+
+# 5.1 reloadタイミング
+よくあるのはウィンドウの起動時に必ずreloadをするというアプローチです。
+**ですが本記事ではMayaの標準的なウィンドウと同挙動のウィンドウを目指します。**
+なので別途reloadボタンを用意し、そのスロットでreloadするような挙動を実装します。
+
+# 5.2 reloadボタンを実装する
+MenuBarを使って実装していきます。
+```diff_python: template_window.py
+try:
+-   from PySide6.QtWidgets import QMainWindow, QPushButton
++   from PySide6.QtGui import QAction
++   from PySide6.QtWidgets import QMainWindow, QMenu, QPushButton
+except ImportError:
+-   from PySide2.QtWidgets import QMainWindow, QPushButton
++   from PySide2.QtWidgets import QAction, QMainWindow, QMenu, QPushButton
+
+class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
+    def init_gui(self) -> None:
++       # メニューバー
++       menu_bar = self.menuBar()
++       dev_menu = menu_bar.addMenu("Dev")
++       restart_action = QAction('Restart', self)
++       restart_action.triggered.connect(lambda *arg: self.__restart_dummy())
++       dev_menu.addAction(restart_action)
+
++       # ボタン
+        push_button = QPushButton('PUSH ME', self)
+        push_button.clicked.connect(lambda *arg: self.__print_hello_world())
+        self.setCentralWidget(push_button)
+
++   def __restart_dummy(self) -> None:
++       print('Restart!')
+
+```
+`QAction`はPySide2では`QtWidgets`にありますが、PySide6では`QtGui`にありますので気をつけてください。
+
+実行すると下図のようになります。
+![08.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/a7deb285-225d-be20-f5e9-17c3acd930bf.gif)
+
+# 5.3 reloadボタンのスロットを実装する
+実際にreload()するスロットを実装していきます。
+処理はrun.pyに関数として実装します。
 
 
 # TODO:
