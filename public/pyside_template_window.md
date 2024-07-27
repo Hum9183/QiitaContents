@@ -88,7 +88,7 @@ def start_pyside_template_window():
 if __name__ == '__main__':
     start_pyside_template_window()
 ```
-start.pyはScriptEditorで実行する文です。
+start.pyはScriptEditorで実行するソースコードです。
 
 それでは実行してみます
 
@@ -124,7 +124,7 @@ from pyside_template_window.template_window import TemplateWindow
 window = TemplateWindow()
 window.show()
 ```
-たとえば上記のようにScriptEditorの一番上のスコープで直接インスタンス化&show()を実行すればすぐに消えません。
+たとえば上記のようにScriptEditorの一番上のスコープで直接インスタンス化してshow()を実行すればすぐに消えません。
 (しかしGlobal空間を汚すことになるのであまり褒められた書き方ではありません)
 
 しかしながら後述するMayaのMainWindowと親子付けすることによっても消えなくなるので、
@@ -192,7 +192,7 @@ class TemplateWindow(QMainWindow):
 +       print('Hello, World!')
 ```
 `push_button.clicked`というのがシグナルです。`ボタンをクリックしたとき`ということですね。
-ほかにも様々な種類のシグナルがあるため、いろいろなことを引き金にして関数を呼び出すことができます。
+シグナルにはほかにも様々な種類があるため、いろいろなことを引き金にして関数を呼び出すことができます。
 
 `lambda *arg: self.__print_hello_world()`というのがスロットです。
 lambdaを使っている理由は引数がある関数を使えるようにするためです。
@@ -214,7 +214,7 @@ Mayaの別の場所をクリックすると、ウィンドウが消えてしま�
 ![04.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/137a6cd4-9b3d-f7dd-22ee-c4ce38d9af51.gif)
 
 厳密に言えば消えたわけではなく、Mayaのウィンドウの後ろに行ってしまっただけです。
-しかしこれだととても使いづらいツールになってしまいます。
+しかしこのままではとても使いづらいツールになってしまいます。
 
 ## 2.2 ウィンドウが後ろに行ってしまう原因
 冒頭で軽く触れましたが、**MayaのUIはQtで動いています**。
@@ -226,8 +226,8 @@ Qtのウィンドウが2つある状況を想像してみてほしいのです�
 ということでMayaのMainWindowに親子付けします。
 
 # 3. MayaのMainWindowに親子付けする
-実はMayaのMainWindowに親子付けするための便利なクラスをAutodeskさんの方で用意してくれているのですが、
-ひとまずは理屈を理解するために自前で実装してみましょう。
+実はMayaのMainWindowに親子付けするための便利なクラスはAutodeskさんの方で事前に用意してくれているのですが、
+まずは理屈を理解するために自前で実装してみましょう。
 
 まず`MayaのMainWindow`の取り方ですが、
 ```get_maya_main_window.py
@@ -263,7 +263,7 @@ TODO: ↑本当か調べる
 > '\_\_doc__': 'Swig object carries a C/C++ instance pointer'
 
 とあるのでC/C++のポインタを持つクラスのようですね。
-気になるポインタの取得方法ですが、__int__を持っているので、intにキャストすることで取得できるようです。
+気になるポインタの取得方法ですが、__int__が実装されているので、intにキャストすることで取得できるようです。
 ```print_maya_main_window_ptr.py
 from maya import OpenMayaUI as omui
 maya_main_window_ptr = omui.MQtUtil.mainWindow()
@@ -286,7 +286,7 @@ except ImportError:
 maya_main_window_ptr = omui.MQtUtil.mainWindow()
 maya_main_window: QMainWindow = wrapInstance(int(maya_main_window_ptr), QMainWindow)
 ```
-wrapInstance()の第一引数には`インスタンスに変換したいポインタ`を、第二引数には`変換する型`を渡します。
+wrapInstance()の第一引数には`インスタンスに変換したいポインタ`を、第二引数には`変換後の型`を渡します。
 
 ということでMayaのMainWindowが取れたので早速親子付けしてみます。
 どうやって親子付けするかですが、これはシンプルに`QMainWindow`のイニシャライザで渡します。
@@ -315,7 +315,7 @@ class TemplateWindow(QMainWindow):
 
 ![06.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/e932353f-7494-c592-a81f-9bae5e259978.gif)
 
-Mayaをクリックしてもウィンドウが後ろに行かなくなりました。
+Mayaの別の場所をクリックしてもウィンドウが後ろに行かなくなりました。
 
 ## 3.1 sys.exit()を削除する
 実はMayaのMainWindowに親子付けした時点でrun.pyのsys.exit()は必要なくなります。
@@ -351,7 +351,7 @@ def start() -> None:
 -       super().__init__(parent=maya_main_window)
 +       super().__init__()
 ```
-1つ注意点として`MayaQWidgetBaseMixin`の継承の記載順があります。
+1つ注意しなければならない点として`MayaQWidgetBaseMixin`の**継承の記載順**があります。
 今は`MayaQWidgetBaseMixin` -> `QMainWindow`の順番で記載しましたが、
 これを逆にすると親子付けがされません。
 ```diff_python: template_window.py
@@ -361,12 +361,12 @@ def start() -> None:
 
 ![07.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/f07dfc3f-6746-0119-b0d4-5aa22609cc6d.gif)
 
-この問題は菱形継承問題といいます。
+この問題を菱形継承問題といいます。
 
 https://ja.wikipedia.org/wiki/%E8%8F%B1%E5%BD%A2%E7%B6%99%E6%89%BF%E5%95%8F%E9%A1%8C
 
 現在`TemplateWindow`は`QMainWindow`と`MayaQWidgetBaseMixin`の２つを継承しています。
-これを**多重継承**といいます。
+これは**多重継承**というものです。
 
 この状況で`super().__init__()`を呼んだ場合、`QMainWindow`と`MayaQWidgetBaseMixin`
 のどちらの`__init__()`が呼ばれるのでしょうか？
@@ -421,7 +421,7 @@ TemplateWindowBは7番目に`MayaQWidgetBaseMixin`が来ています。
 `MayaQWidgetBaseMixin`のメソッドではなく`QMainWindow`のメソッドが呼ばれることを意味しています。
 
 というわけで継承の記載順には気をつける必要があります。
-もちろん継承の記載順はC3の一部に過ぎないということも忘れてはいけません。
+また継承の記載順はMROを決定する要素の一部に過ぎないということも忘れてはいけません。
 
 ## 3.3 イニシャライザの仮引数を整える
 現在のTemplateWindowのイニシャライザは仮引数がありませんが、
@@ -432,7 +432,7 @@ class MayaQWidgetBaseMixin(object):
         super(MayaQWidgetBaseMixin, self).__init__(parent=parent, *args, **kwargs)
         self._initForMaya(parent=parent)
 ```
-TemplateWindowで仮引数を埋めてしまうのはあまりお行儀が良い書き方とは言えないので、
+TemplateWindowで仮引数を埋め立ててしまうのはあまりお行儀が良い書き方ではありません。
 TemplateWindowのイニシャライザでも仮引数も渡せるようにしておきましょう。
 ```diff_python: template_window.py
 class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
@@ -452,9 +452,12 @@ class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
 トラブルになりかねないので直していきます。
 
 ## 4.1 ウィンドウに名前を設定する
-`omui.MQtUtil.findControl()`を使うことで一意のウィンドウのポインタを取得することができます。
+多重起動を防ぐ場合、方法はいろいろあると思いますが、
+シンプルなのは**すでにウィンドウが存在するか**をチェックする方法です。
+
+Mayaでは`omui.MQtUtil.findControl()`を使うことで一意のウィンドウを取得することができます。
 しかしこの関数の引数には`ウィンドウの名前`を渡す必要があります。
-このウィンドウにはなんだかんだで名前が設定されていませんでした。
+`TemplateWindow`にはなんだかんだで名前が設定していませんでした。
 名前はウィンドウを識別する上でかなり重要な要素になるので、しっかりと設定していきます。
 
 https://help.autodesk.com/view/MAYADEV/2025/JPN/?guid=Maya_DEVHELP_Maya_Python_API_Working_with_PySide_in_Maya_html
@@ -486,6 +489,9 @@ def start() -> None:
 これでウィンドウの名前を設定できました。
 
 ## 4.2 すでにウィンドウが存在するかを判定する
+`start()`で`omui.MQtUtil.findControl()`を使ってウィンドウを取得します。
+返り値の型は`QMainWindow`などではなく`SwigPyObject`なので、
+無難に`if ptr is None:`で存在するかどうかを判定しましょう。
 ```diff_python: run.py
 +from maya import OpenMayaUI as omui
 from .template_window import TemplateWindow
@@ -506,9 +512,9 @@ def start() -> None:
 
 ![10.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/7a6f5945-b015-ac38-2d62-418556f566b7.gif)
 
-うまく行っているようです。
+うまくいっているようですね。
 
-## 4.3 ないけどある場合
+## 4.3 あるけどない場合
 一度ウィンドウを閉じたあとでもう一度起動すると、
 すでにウィンドウが存在すると言われてしまいます。
 
@@ -596,14 +602,14 @@ Mayaの標準的なウィンドウではほかのGUIとドッキングをする�
 
 ![13.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/2d345d15-5d01-db25-705e-c14a7da8f562.gif)
 
-現在のTemplateWindowではもちろんできません。
+もちろん現在のTemplateWindowではできません。
 
 # 6. reloadできるようにする
 Maya上でPythonツールを開発する際、
 ソースコードを変更するたびにMayaを立ち上げるのは大変です。
-これを解消するためにはreload()を使うことになります。
+これを解消するためには`reload()`を使うことになります。
 
-cmdsを用いた開発でもお世話になった方も多いと思いますが、
+maya.cmdsを用いた開発で馴染みのある方も多いと思いますが、
 PySideでも使います。
 
 ## 6.1 reloadタイミング
@@ -612,7 +618,7 @@ PySideでも使います。
 なので別途reloadボタンを用意し、そのスロットでreloadするような挙動を実装します。
 
 ## 6.2 reloadボタンを実装する
-MenuBarを使って実装していきます。
+reloadボタンは`MenuBar`というクラスを使って実装していきます。
 ```diff_python: template_window.py
 try:
 -   from PySide6.QtWidgets import QMainWindow, QPushButton
