@@ -11,6 +11,8 @@ organization_url_name: null
 slide: false
 ignorePublish: false
 ---
+TODO: 時系列的にDevメニューが有るとおかしいGifがあるので修正する
+
 # はじめに
 - この記事はMayaツールのウィンドウの雛形をつくってみたものです
 - PySideを使用します
@@ -602,7 +604,7 @@ Mayaの標準的なウィンドウではほかのGUIとドッキングをする�
 
 ![13.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/2d345d15-5d01-db25-705e-c14a7da8f562.gif)
 
-もちろん現在のTemplateWindowではできません。
+もちろん現在のTemplateWindowではドッキングできません。
 
 ドッキングできるようにするためには以下の2つのことを行う必要があります。
 - MayaQWidgetDockableMixinを継承する
@@ -612,7 +614,7 @@ Mayaの標準的なウィンドウではほかのGUIとドッキングをする�
 `MayaQWidgetDockableMixin`とは、
 `MayaQWidgetBaseMixin`にドッキング機能がついたものです。
 クラス名が長くて紛らわしいですが名前としては文字列の`Base`が`Dockable`に変わっただけです。
-クラスとしても`MayaQWidgetBaseMixin`を継承してできています。
+クラスとしては`MayaQWidgetBaseMixin`を継承してできています。
 
 ```diff_python: mayaMixin.py
 class MayaQWidgetDockableMixin(MayaQWidgetBaseMixin):
@@ -633,7 +635,7 @@ class MayaQWidgetDockableMixin(MayaQWidgetBaseMixin):
 ```
 
 ## 5.2 show()のdockableフラグをTrueにする
-`MayaQWidgetDockableMixin`を継承するようになったことでshow()に様々なフラグが渡せるようになりました。
+`MayaQWidgetDockableMixin`を継承することでshow()に様々なフラグが渡せるようになります。
 `dockableフラグ`はデフォルトがNoneなので明示的にTrueを渡します。
 
 やり方ですがrun.pyのstart()のshow()を書き換えると下記のようになります。
@@ -647,7 +649,7 @@ def start() -> None:
 -       window.show()
 +       window.show(dockable=True)
 ```
-これでも悪くはないのですが、**フラグをどう指定するかなどの細かい情報はrun.py側が気にすることではないので**、template_window.pyの中で指定します。
+これでも悪くはないのですが、**フラグをどう指定するかなどの細かい情報はrun.py側が気にすることではないので**、今回はtemplate_window.pyの中で指定します。
 
 template_window.pyの中でshow()を呼ぶことはないので、方法としてはshow()をオーバーライドすることで実現します。
 
@@ -659,7 +661,7 @@ class TemplateWindow(MayaQWidgetDockableMixin, QMainWindow):
 
 ![14.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/c2bd9c51-d169-1c53-e469-5110f25a3eea.gif)
 
-不格好ではありますがドッキングすることができました。
+やや不格好ではありますがドッキングすることができました。
 
 ちなみにドッキングの副産物としてウィンドウサイズと位置を記憶するようになります。
 (Mayaを落とすとリセットされます。Mayaを落としても記憶させるには後述するworkSpaceControlというものを使う必要があります)
@@ -667,8 +669,93 @@ class TemplateWindow(MayaQWidgetDockableMixin, QMainWindow):
 
 ![15.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/a526c798-a2ce-bc5c-3118-257d3bda59a4.gif)
 
+# 6. Restoreできるようにする
+そもそもRestoreとはなにかですが、
+Mayaの起動時に**前回のウィンドウの配置情報を復元すること**です。
 
-# 6. reloadできるようにする
+みなさんは日頃からMayaを使いやすいようにウィンドウの位置や大きさ、幅を変えていたりすると思いますが、
+あれがMayaの起動時に毎回復元されているのはまさにRestoreの機能になります。
+もちろん現在のTemplateWindowはRestoreされません。
+
+Restoreできるようにするには以下の2つのことを行う必要があります。
+- Restore用の関数を用意する
+- show()のuiScriptフラグにRestore用の関数を渡す
+
+今回は説明の都合上
+- Restore関数のガワだけつくる
+- show()のuiScriptフラグにRestore用の関数を渡す
+- Restore関数の実装をつくる
+
+という流れで説明します
+
+## 6.1 Restore用の関数とは
+Restore用の関数がいつ、なんのためにで呼ばれるものなのかを説明すると、
+**いつ呼ばれるものかでいうと、Mayaの起動時**で、
+**なんのために呼ばれるかでいうと、UIを再構築するため**です。
+
+まさにRestore用の関数というわけですね。
+
+## 6.2 Restore用の関数を作る
+run.pyにrestore()というUIを再構築する関数を作ります
+```diff_python: run.py
++def restore() -> None:
++   # WARNING: GCに破棄されないようにクラス変数に保存しておく
++   TemplateWindow.restored_instance = __create_window()
++   ptr = omui.MQtUtil.findControl(TemplateWindow.name)
++   restored_control = omui.MQtUtil.getCurrentParent()
++   omui.MQtUtil.addWidgetToMayaLayout(int(ptr), int(restored_control))
+```
+またTemplateWindowにはresotored_instanceというクラス変数を用意します。
+```diff_python: template_window.py
+class TemplateWindow(mayaMixin.MayaQWidgetDockableMixin, QMainWindow):
++   restored_instance = None
+```
+重要なところなので一つずつ解説します
+
+### 6.2.1 インスタンスを生成する
+```diff_python: run.py
+def restore() -> None:
++   # WARNING: 破棄されないようにクラス変数に保存しておく
++   TemplateWindow.restored_instance = __create_window()
+```
+まずは`__create_window()`を呼んでウィンドウのインスタンスを生成します。
+ここで注意なのは生成したインスタンスはローカル変数に入れてはいけないということです。
+restore()が呼ばれているときはMayaの起動中のため、ローカル変数に入れただけではスコープ外になった瞬間に破棄されてしまいます。
+なのでクラス変数やグローバル変数などの寿命が長い変数に入れることで即座に破棄されることを防ぐ必要があります。
+```diff_python: template_window.py
+class TemplateWindow(mayaMixin.MayaQWidgetDockableMixin, QMainWindow):
++   restored_instance = None
+```
+今回はTemplateWindowのクラス変数に入れています。
+
+### 6.2.1 ワークスペースコントロールに親子付けする
+```diff_python: run.py
+def restore() -> None:
+    # WARNING: 破棄されないようにクラス変数に保存しておく
+    TemplateWindow.restored_instance = __create_window()
++   ptr = omui.MQtUtil.findControl(TemplateWindow.name)
++   restored_control = omui.MQtUtil.getCurrentParent()
++   omui.MQtUtil.addWidgetToMayaLayout(int(ptr), int(restored_control))
+```
+階層構造は以下です。
+MayaMainWindow
+└workspaceControl(Layout)
+ └QWidget
+
+NOTE:
+- 関数のガワだけ仮でつくる
+- Maya_Classic.jsonに保存されていることを確認する
+- 関数の実装を作る
+- の流れがいいかも
+
+## 6.x Maya_Classic.jsonについて
+
+## 6.x workSpaceControlについて
+
+## 6.x retainについて
+
+
+# 7. reloadできるようにする
 Maya上でPythonツールを開発する際、
 ソースコードを変更するたびにMayaを立ち上げるのは大変です。
 これを解消するためには`reload()`を使うことになります。
@@ -676,12 +763,12 @@ Maya上でPythonツールを開発する際、
 maya.cmdsを用いた開発で馴染みのある方も多いと思いますが、
 PySideでも使います。
 
-## 6.1 reloadタイミング
+## 7.1 reloadタイミング
 よくあるのはウィンドウの起動時に必ずreloadをするというアプローチです。
 **ですが本記事ではMayaの標準的なウィンドウと同挙動のウィンドウを目指します。**
 なので別途reloadボタンを用意し、そのスロットでreloadするような挙動を実装します。
 
-## 6.2 reloadボタンを実装する
+## 7.2 reloadボタンを実装する
 reloadボタンは`MenuBar`というクラスを使って実装していきます。
 ```diff_python: template_window.py
 try:
@@ -715,19 +802,50 @@ class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
 実行すると下図のようになります。
 ![08.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/a7deb285-225d-be20-f5e9-17c3acd930bf.gif)
 
-## 6.3 reloadボタンのスロットを実装する
+## 7.3 reloadボタンのスロットを実装する
 実際にreload()するスロットを実装していきます。
-処理はrun.pyに関数として実装します。
+リロードはウィンドウを一度閉じて再び開く必要があるためTemplateWindow側に処理を持つのは少し都合が悪いです。
+なので処理はrun.pyにrestart()という関数として実装します。
 
-# 7. Restore
+```diff_python: run.py
++from maya import cmds
 
-# 7.1 workSpaceControlについて
++def restart() -> None:
++   if cmds.workspaceControl(TemplateWindow.workspace_control, q=True, exists=True):
++        # すでに存在しているWindowは削除する
++        cmds.deleteUI(TemplateWindow.workspace_control, control=True)
++
++   window = __create_window()
++   window.show()
+```
 
-# 7.3 retainについて
+```diff_python: template_window.py
++from . import restart
+
+class TemplateWindow(MayaQWidgetDockableMixin, QMainWindow):
+    def init_gui(self) -> None:
+        menu_bar = self.menuBar()
+        dev_menu = menu_bar.addMenu("Dev")
+        restart_action = QAction('Restart', self)
+-       restart_action.triggered.connect(lambda *arg: self.__restart_dummy())
++       restart_action.triggered.connect(lambda *arg: restart())
+        dev_menu.addAction(restart_action)
+```
+
+## 7.3 reloadの実装が最後になった理由
+realodの実装にはworkspaceControlが深く関わっています。
+DockableやRestoreの実装が終わってからのほうが大変都合が良かったので、
+最後の実装になっています。
+
+# 注意事項
+これらの実装は互いに深く影響し合っているため、
+ある特定の部分(例えばreload)だけを実装してみてもおそらくうまくいきません。
+本記事ではその関係性まで深くは解説しませんが、そういう関係性があるということはご理解いただけると幸いです
 
 # TODO:
-objectName()とmaya.OpenMayaUI.MQtUtil.findControl()の絡みがあるので、
-MayaQWidgetBaseMixinを継承するのはもう少しあとでいいかもしれない
+- objectName()とmaya.OpenMayaUI.MQtUtil.findControl()の絡みがあるので、MayaQWidgetBaseMixinを継承するのはもう少しあとでいいかもしれない
+- workspaceControlは自前実装解説を入れたほうがいいかもしれない
+
 
 # メモ
 >ウィジェットを使用し、maya.OpenMayaUI.MQtUtil.findControl() からルックアップできるようにするには、ウィジェットに一意の objectName() が必要です。
@@ -737,3 +855,5 @@ http://leavebehind.iobb.net/wordpress/2016/12/14/mac%E7%89%88mayapyside%E3%81%A7
 
 # 参考
 https://tommy-on.hatenablog.com/entry/2019/04/14/231938
+
+https://help.autodesk.com/view/MAYADEV/2025/JPN/?guid=Maya_DEVHELP_Maya_Python_API_Writing_Workspace_controls_html
