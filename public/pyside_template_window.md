@@ -20,6 +20,7 @@ TODO: 時系列的にDevメニューが有るとおかしいGifがあるので�
 
 # 注意
 - 本記事内のソースコードは尺の都合上、一部(import文や焦点があたっていないメソッドなど)を省略することがあります
+- Python2系以前(Maya2020以前)はサポートしません
 
 # 対象読者
 - PySideのことはよくわからないけど、とりあえずウィンドウをつくってみたい人
@@ -857,3 +858,5 @@ http://leavebehind.iobb.net/wordpress/2016/12/14/mac%E7%89%88mayapyside%E3%81%A7
 https://tommy-on.hatenablog.com/entry/2019/04/14/231938
 
 https://help.autodesk.com/view/MAYADEV/2025/JPN/?guid=Maya_DEVHELP_Maya_Python_API_Writing_Workspace_controls_html
+
+https://qiita.com/sporty/items/a26ea7e4691437a6e8c8
