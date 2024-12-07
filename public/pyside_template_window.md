@@ -62,7 +62,7 @@ https://github.com/Hum9183/pyside_template_window
 ちなみにMayaのUIはQtで動いています。
 
 # 1. PySideでウィンドウを出す
-まずはPySideの普通のウィンドウを出してみます
+まずはPySideで普通のウィンドウを出してみます
 ```template_window.py
 try:
     from PySide6.QtWidgets import QMainWindow
@@ -72,8 +72,9 @@ except ImportError:
 class TemplateWindow(QMainWindow):
     pass
 ```
-普通のウィンドウを作る場合はQMainWindowを継承したクラスを作ります。
-Maya2025からはPySide6になっているため、importの書き方に気をつけてください。
+普通のウィンドウを作る場合は`QMainWindow`を継承したクラスを作ります。
+現在サポートされているMayaのPySideはPySide2とPySide6があります。
+今回は両対応するためにtry-except文で実装しています。
 ```run.py
 from .template_window import TemplateWindow
 
@@ -82,7 +83,7 @@ def start() -> None:
     window.show()
 ```
 後でreloadにも対応することを見越して、
-インスタンス生成処理はファイルを分けておきます。
+インスタンス生成処理はrun.pyというファイルに分けておきます。
 ```start.py
 def start_pyside_template_window():
     from pyside_template_window import run
@@ -138,7 +139,7 @@ window.show()
 QtではボタンなどのGUIの部品を`Widget`と呼びます。
 このWidgetを追加することによって好みのGUIを作成していくことになります。
 
-ボタンはQPushButtonというクラスを使います。
+ボタンは`QPushButton`というクラスを使います。
 QPushButtonのインスタンスをsetCentralWidget()することでボタンをセットすることができます。
 ```diff_python: template_window.py
 try:
@@ -355,7 +356,7 @@ def start() -> None:
 +       super().__init__()
 ```
 1つ注意しなければならない点として`MayaQWidgetBaseMixin`の**継承の記載順**があります。
-今は`MayaQWidgetBaseMixin` -> `QMainWindow`の順番で記載しましたが、
+今回は`MayaQWidgetBaseMixin` -> `QMainWindow`の順番で記載しましたが、
 これを逆にすると親子付けがされません。
 ```diff_python: template_window.py
 -class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
@@ -601,7 +602,7 @@ class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
 ![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/f73fda34-0667-93a5-c0de-49ccf0f39f47.png)
 
 # 5. ドッキングできるようにする
-Mayaの標準的なウィンドウではほかのGUIとドッキングをすることができます。
+Mayaの標準的なウィンドウはほかのGUIとドッキングをすることができます。
 
 ![13.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/2d345d15-5d01-db25-705e-c14a7da8f562.gif)
 
@@ -682,44 +683,170 @@ Restoreできるようにするには以下の2つのことを行う必要があ
 - Restore用の関数を用意する
 - show()のuiScriptフラグにRestore用の関数を渡す
 
-今回は説明の都合上
-- Restore関数のガワだけつくる
+今回は説明の都合上、
+- Restore用の関数のガワだけつくる
 - show()のuiScriptフラグにRestore用の関数を渡す
-- Restore関数の実装をつくる
+- Restore用の関数の実装をつくる
 
 という流れで説明します
 
 ## 6.1 Restore用の関数とは
 Restore用の関数がいつ、なんのためにで呼ばれるものなのかを説明すると、
-**いつ呼ばれるものかでいうと、Mayaの起動時**で、
-**なんのために呼ばれるかでいうと、UIを再構築するため**です。
+**Mayaの起動時に呼ばれて**、
+**GUIを再構築するため**のものになります。
 
 まさにRestore用の関数というわけですね。
 
-## 6.2 Restore用の関数を作る
-run.pyにrestore()というUIを再構築する関数を作ります
+## 6.2 Restore関数のガワだけつくる
 ```diff_python: run.py
 +def restore() -> None:
-+   # WARNING: GCに破棄されないようにクラス変数に保存しておく
++   pass
+```
+run.pyにとりあえずガワだけ用意しておきます。
+
+## 6.3 show()のuiScriptフラグにRestore用の関数を渡す
+uiScriptフラグにはスクリプトの文字列そのものを渡す必要があります。
+文字列を直打ちして書いても良いのですが少々スマートさに欠けるので、
+今回は`inspectモジュール`の`getsource()`という関数を使います。
+これは関数などを引数として渡すと文字列にして返してくれるというものです。
+```diff_python: template_window.py
++import inspect
++from . import run
+def show(self): # オーバーライド
++   restore_script = inspect.getsource(run.restore)
+-   super().show(dockable=True)
++   super().show(dockable=True, uiScript=restore_script)
+```
+
+## 6.4 一度Mayaを落として起動し直してみる
+さてここでMayaを再起動してなにが起きるか確認してみましょう。
+当然ですがrestoreの確認なのでTemplateWindowを残したままMayaを落としてください。
+
+そしてMayaを起動すると、
+
+![{0C01B6A6-6B68-4A27-9C29-6D67C093F33B}.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/e36c1270-ac67-ed1b-ba89-43c0286d3750.png)
+
+TemplateWindowが復元されていますね。
+しかしGUIの中身は再構築されていないようです。
+本来であればrestore()に処理が書いてあるためうまく再構築されます。
+
+さてrestore()の処理を書く前にrestore情報の保存先を見ていきます。
+こちらを把握しておくことでrestore()になにを書けばよいかが見えてきます。
+
+## 6.5 restore情報の保存先
+restore情報はGeneral.jsonに保存されています。
+
+このパスはMayaを起動した言語によって異なります。
+
+```日本語の場合.txt
+C:\Users\<ユーザーネーム>\Documents\maya\<Mayaのバージョン>\ja_JP\prefs\workspaces\General.json
+```
+
+```英語の場合.txt
+C:\Users\<ユーザーネーム>\Documents\maya\<Mayaのバージョン>\prefs\workspaces\General.json
+```
+
+General.jsonというのはMayaのワークスペースの情報を記録したものです。
+Mayaの右上のほうにある「ワークスペース」という部分ですね。
+
+![16.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/0879e480-510b-fee1-0c4b-d1176ccc72f6.gif)
+
+https://help.autodesk.com/view/MAYACRE/JPN/?guid=GUID-0384C282-3CA1-4587-9775-F7164D3F6980
+
+Mayaを最初に起動したときは「一般(英語だとGeneral)」になっていると思います。
+
+ワークスペースを編集している方はjsonの名前がGeneralではなく任意の名前になっていたりします。
+またワークスペースは複数持てますので、restore情報が保存されるのはMayaを落としたときのワークスペースだけになります。
+
+## 6.6 General.jsonを確認する
+長いので抜粋しますが重要なのはこのあたりです。
+```
+{
+    "mainWindowPanel": false,
+    "posX": 731,
+    "posY": 503,
+    "splitter": {
+        "orientation": "horizontal",
+        "children": [
+            {
+                "tabWidget": {
+                    "selectedIndex": 0,
+                    "controlWidth": 342,
+                    "controlHeight": 144,
+                    "collapsed": false,
+                    "controls": [
+                        {
+                            "objectName": "PysideTemplateWorkspaceControl",
+                            "title": "PySide Template",
+                            "uiScript": "python(\"def restore() -> None:\\n    pass\\n\");",
+                            "retain": true,
+                            "deleteLater": true,
+                            "loadImmediately": true,
+                            "checkPlugins": false,
+                            "tabDirection": 0,
+                            "closed": false,
+                            "widthProperty": "free",
+                            "heightProperty": "free",
+                            "controlWidth": 342,
+                            "controlHeight": 144
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+},
+```
+`"objectName": "PysideTemplateWorkspaceControl"`とありますね。
+この部分で間違いなさそうです。`WorkspaceControl`というのはあとで解説します。
+
+`"uiScript": "python(\"def restore() -> None:\\n    pass\\n\");"`とありますね。
+これは先ほど`show()`のuiScriptフラグで渡した文字列そのものです。
+MELに変換されているのとバックスラッシュばかりで見辛いですが内容的には、
+```
+def restore() -> None:
+   pass
+```
+と同じですね。
+
+## 6.7 restoreの流れを整理する
+1. Mayaを落とす
+2. General.jsonにTemplateWindowの情報(uiScriptなど)が保存される
+3. Mayaを起動する
+4. MayaがGeneral.jsonを読みに行く
+5. TemplateWindowのガワだけ作られる TODO: workspaceControlが生成されているということ？ちゃんと調べる
+6. uiScriptが実行される(GUIが再構築される)
+
+という流れになります。
+
+## 6.8 Restore用の関数の実装をつくる
+ではようやくGUIを再構築する処理を書いていきます。
+```diff_python: run.py
+def restore() -> None:
+-   pass
++   # WARNING: 破棄されないようにクラス変数に保存しておく
 +   TemplateWindow.restored_instance = __create_window()
++   # PysideTemplate
 +   ptr = omui.MQtUtil.findControl(TemplateWindow.name)
++   # PysideTemplateWorkspaceControl
 +   restored_control = omui.MQtUtil.getCurrentParent()
++   # 親子付け処理
 +   omui.MQtUtil.addWidgetToMayaLayout(int(ptr), int(restored_control))
 ```
-またTemplateWindowにはresotored_instanceというクラス変数を用意します。
+またTemplateWindowにresotored_instanceというクラス変数を用意しておきます。
 ```diff_python: template_window.py
 class TemplateWindow(mayaMixin.MayaQWidgetDockableMixin, QMainWindow):
 +   restored_instance = None
 ```
 重要なところなので一つずつ解説します
 
-### 6.2.1 インスタンスを生成する
+### 6.8.1 インスタンスを生成する
 ```diff_python: run.py
 def restore() -> None:
 +   # WARNING: 破棄されないようにクラス変数に保存しておく
 +   TemplateWindow.restored_instance = __create_window()
 ```
-まずは`__create_window()`を呼んでウィンドウのインスタンスを生成します。
+まずは`__create_window()`を呼んでTemplateWindowのインスタンスを生成します。
 ここで注意なのは生成したインスタンスはローカル変数に入れてはいけないということです。
 restore()が呼ばれているときはMayaの起動中のため、ローカル変数に入れただけではスコープ外になった瞬間に破棄されてしまいます。
 なのでクラス変数やグローバル変数などの寿命が長い変数に入れることで即座に破棄されることを防ぐ必要があります。
@@ -729,29 +856,92 @@ class TemplateWindow(mayaMixin.MayaQWidgetDockableMixin, QMainWindow):
 ```
 今回はTemplateWindowのクラス変数に入れています。
 
-### 6.2.1 ワークスペースコントロールに親子付けする
+### 6.8.2 インスタンスのポインタを取得する
 ```diff_python: run.py
 def restore() -> None:
     # WARNING: 破棄されないようにクラス変数に保存しておく
     TemplateWindow.restored_instance = __create_window()
++   # PysideTemplate
 +   ptr = omui.MQtUtil.findControl(TemplateWindow.name)
+```
+`omui.MQtUtil.findControl()`を使って`TemplateWindow.restored_instance`に入っているインスタンスのポインタを取得します。
+引数は名前なので`TemplateWindow.name`を渡します(実際の文字列としては`'PysideTemplate'`ですね)
+
+### 6.8.3 ワークスペースコントロールを取得する
+TODO: ワークスペースコントロールの説明がガバガバすぎるのでもう少し正確に書く
+```diff_python: run.py
+def restore() -> None:
+    # WARNING: 破棄されないようにクラス変数に保存しておく
+    TemplateWindow.restored_instance = __create_window()
+    # PysideTemplate
+    ptr = omui.MQtUtil.findControl(TemplateWindow.name)
++   # PysideTemplateWorkspaceControl
 +   restored_control = omui.MQtUtil.getCurrentParent()
+```
+`omui.MQtUtil.getCurrentParent()`を使うと現在の親、
+つまりGeneral.jsonを呼んでいるときのオブジェクトが呼ばれます。
+General.jsonを見たときに、
+`"objectName": "PysideTemplateWorkspaceControl"`というものが出てきましたがまさにこれのことです。
+
+### 6.8.4 ワークスペースコントロールに親子付けする
+```diff_python: run.py
+def restore() -> None:
+    # WARNING: 破棄されないようにクラス変数に保存しておく
+    TemplateWindow.restored_instance = __create_window()
+    # PysideTemplate
+    ptr = omui.MQtUtil.findControl(TemplateWindow.name)
+    # PysideTemplateWorkspaceControl
+    restored_control = omui.MQtUtil.getCurrentParent()
++   # 親子付け処理
 +   omui.MQtUtil.addWidgetToMayaLayout(int(ptr), int(restored_control))
 ```
+`omui.MQtUtil.addWidgetToMayaLayout()`でワークスペースコントロールとPysideTemplateを親子付けします。
+
 階層構造は以下です。
 MayaMainWindow
 └workspaceControl(Layout)
- └QWidget
+　└QWidget(PysideTemplate)
 
-NOTE:
-- 関数のガワだけ仮でつくる
-- Maya_Classic.jsonに保存されていることを確認する
-- 関数の実装を作る
-- の流れがいいかも
+## 6.9 Mayaを落として起動し直してみる(再)
+restore()の処理が書けたので早速Mayaを再起動してみましょう。
 
-## 6.x Maya_Classic.jsonについて
+![{B5B83881-6082-49C6-94FB-6E6BEB9151D4}.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/b916dca6-2b34-ad54-e01f-6d197e8b0785.png)
+
+無事復元されているようです。
+
+## 6.10 restore()の取り回しを改善する
+このままでも十分良いのですが、
+今のuiScriptは処理が全文General.jsonに書き込まれてしまっています。
+今General.jsonのuiScriptに何が書き込まれているかを意識するのは面倒なため、
+uiScriptに渡すのは`run.restore()を呼ぶ処理`にしてしましましょう。
+
+具体的にはrestore.pyというファイルを新規作成します。
+```diff_python: restore.py
+def restore_pyside_template_window():
+    from pyside_template_window import run
+    run.restore()
+
+if __name__ == '__main__':
+    restore_pyside_template_window()
+```
+そしてuiScriptではこのファイル(モジュール)を渡すように変更します。
+```diff_python: template_window.py
+-from . import run
++from . import restore
+def show(self):
+-   restore_script = inspect.getsource(run.restore)
++   restore_script = inspect.getsource(restore)
+    super().show(dockable=True, uiScript=restore_script)
+```
+![{9126105D-2141-430A-8215-AD525CB2FC66}.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/e027ed6d-8b57-e3aa-8a53-1d6b2f26d39c.png)
+
+問題ないようですね。
+こちらのほうが管理もしやすいですしトラブルも起きにくいと思います。
 
 ## 6.x workSpaceControlについて
+しっかり重点的に書きたい
+.parent()などがどうなっているかもしっかり見せていく
+restore()関数を一度素で呼んでみて見せたらかなりわかりやすい気がする
 
 ## 6.x retainについて
 
