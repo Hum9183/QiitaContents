@@ -601,77 +601,9 @@ class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
 
 ![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/f73fda34-0667-93a5-c0de-49ccf0f39f47.png)
 
-# 5. ドッキングできるようにする
-Mayaの標準的なウィンドウはほかのGUIとドッキングをすることができます。
+# 5. Restoreできるようにする
+TODO: まずはcmds.workspaceContorlで自前実装してみせる
 
-![13.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/2d345d15-5d01-db25-705e-c14a7da8f562.gif)
-
-もちろん現在のTemplateWindowではドッキングできません。
-
-ドッキングできるようにするためには以下の2つのことを行う必要があります。
-- MayaQWidgetDockableMixinを継承する
-- show()のdockableフラグをTrueにする
-
-## 5.1 MayaQWidgetDockableMixinを継承する
-`MayaQWidgetDockableMixin`とは、
-`MayaQWidgetBaseMixin`にドッキング機能がついたものです。
-クラス名が長くて紛らわしいですが名前としては文字列の`Base`が`Dockable`に変わっただけです。
-クラスとしては`MayaQWidgetBaseMixin`を継承してできています。
-
-```diff_python: mayaMixin.py
-class MayaQWidgetDockableMixin(MayaQWidgetBaseMixin):
-    ...
-```
-
-それでは、
-`MayaQWidgetBaseMixin`を継承していたところを
-`MayaQWidgetDockableMixin`に置き換えます。
-
-```diff_python: template_window.py
--from maya.app.general.mayaMixin import MayaQWidgetBaseMixin
-+from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
-
--class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
-+class TemplateWindow(MayaQWidgetDockableMixin, QMainWindow):
-    ...
-```
-
-## 5.2 show()のdockableフラグをTrueにする
-`MayaQWidgetDockableMixin`を継承することでshow()に様々なフラグが渡せるようになります。
-`dockableフラグ`はデフォルトがNoneなので明示的にTrueを渡します。
-
-やり方ですがrun.pyのstart()のshow()を書き換えると下記のようになります。
-```diff_python: run.py
-def start() -> None:
-    # 現在のMaya内に存在するTemplateWindowのポインタを取得する
-    ptr = omui.MQtUtil.findControl(TemplateWindow.name)
-    if ptr is None:  # ない場合
-        print(f'{TemplateWindow.name}が存在しないため生成します')
-        window = __create_window()
--       window.show()
-+       window.show(dockable=True)
-```
-これでも悪くはないのですが、**フラグをどう指定するかなどの細かい情報はrun.py側が気にすることではないので**、今回はtemplate_window.pyの中で指定します。
-
-template_window.pyの中でshow()を呼ぶことはないので、方法としてはshow()をオーバーライドすることで実現します。
-
-```diff_python: template_window.py
-class TemplateWindow(MayaQWidgetDockableMixin, QMainWindow):
-+   def show(self): # オーバーライド
-+       super().show(dockable=True)
-```
-
-![14.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/c2bd9c51-d169-1c53-e469-5110f25a3eea.gif)
-
-やや不格好ではありますがドッキングすることができました。
-
-ちなみにドッキングの副産物としてウィンドウサイズと位置を記憶するようになります。
-(Mayaを落とすとリセットされます。Mayaを落としても記憶させるには後述するworkSpaceControlというものを使う必要があります)
-↑現時点でも内部でworkSpaceControlは使っていると思う。保存されてないだけだと思うから、mayaMixinをいじって検証してみる
-
-![15.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/a526c798-a2ce-bc5c-3118-257d3bda59a4.gif)
-
-# 6. Restoreできるようにする
 そもそもRestoreとはなにかですが、
 Mayaの起動時に**前回のウィンドウの配置情報を復元すること**です。
 
@@ -690,21 +622,21 @@ Restoreできるようにするには以下の2つのことを行う必要があ
 
 という流れで説明します
 
-## 6.1 Restore用の関数とは
+## 5.1 Restore用の関数とは
 Restore用の関数がいつ、なんのためにで呼ばれるものなのかを説明すると、
 **Mayaの起動時に呼ばれて**、
 **GUIを再構築するため**のものになります。
 
 まさにRestore用の関数というわけですね。
 
-## 6.2 Restore関数のガワだけつくる
+## 5.2 Restore関数のガワだけつくる
 ```diff_python: run.py
 +def restore() -> None:
 +   pass
 ```
 run.pyにとりあえずガワだけ用意しておきます。
 
-## 6.3 show()のuiScriptフラグにRestore用の関数を渡す
+## 5.3 show()のuiScriptフラグにRestore用の関数を渡す
 uiScriptフラグにはスクリプトの文字列そのものを渡す必要があります。
 文字列を直打ちして書いても良いのですが少々スマートさに欠けるので、
 今回は`inspectモジュール`の`getsource()`という関数を使います。
@@ -718,7 +650,7 @@ def show(self): # オーバーライド
 +   super().show(dockable=True, uiScript=restore_script)
 ```
 
-## 6.4 一度Mayaを落として起動し直してみる
+## 5.4 一度Mayaを落として起動し直してみる
 さてここでMayaを再起動してなにが起きるか確認してみましょう。
 当然ですがrestoreの確認なのでTemplateWindowを残したままMayaを落としてください。
 
@@ -733,7 +665,7 @@ TemplateWindowが復元されていますね。
 さてrestore()の処理を書く前にrestore情報の保存先を見ていきます。
 こちらを把握しておくことでrestore()になにを書けばよいかが見えてきます。
 
-## 6.5 restore情報の保存先
+## 5.5 restore情報の保存先
 restore情報はGeneral.jsonに保存されています。
 
 このパスはMayaを起動した言語によって異なります。
@@ -758,7 +690,7 @@ Mayaを最初に起動したときは「一般(英語だとGeneral)」になっ�
 ワークスペースを編集している方はjsonの名前がGeneralではなく任意の名前になっていたりします。
 またワークスペースは複数持てますので、restore情報が保存されるのはMayaを落としたときのワークスペースだけになります。
 
-## 6.6 General.jsonを確認する
+## 5.6 General.jsonを確認する
 長いので抜粋しますが重要なのはこのあたりです。
 ```
 {
@@ -809,7 +741,7 @@ def restore() -> None:
 ```
 と同じですね。
 
-## 6.7 restoreの流れを整理する
+## 5.7 restoreの流れを整理する
 1. Mayaを落とす
 2. General.jsonにTemplateWindowの情報(uiScriptなど)が保存される
 3. Mayaを起動する
@@ -819,7 +751,7 @@ def restore() -> None:
 
 という流れになります。
 
-## 6.8 Restore用の関数の実装をつくる
+## 5.8 Restore用の関数の実装をつくる
 ではようやくGUIを再構築する処理を書いていきます。
 ```diff_python: run.py
 def restore() -> None:
@@ -840,7 +772,7 @@ class TemplateWindow(mayaMixin.MayaQWidgetDockableMixin, QMainWindow):
 ```
 重要なところなので一つずつ解説します
 
-### 6.8.1 インスタンスを生成する
+### 5.8.1 インスタンスを生成する
 ```diff_python: run.py
 def restore() -> None:
 +   # WARNING: 破棄されないようにクラス変数に保存しておく
@@ -856,7 +788,7 @@ class TemplateWindow(mayaMixin.MayaQWidgetDockableMixin, QMainWindow):
 ```
 今回はTemplateWindowのクラス変数に入れています。
 
-### 6.8.2 インスタンスのポインタを取得する
+### 5.8.2 インスタンスのポインタを取得する
 ```diff_python: run.py
 def restore() -> None:
     # WARNING: 破棄されないようにクラス変数に保存しておく
@@ -867,7 +799,7 @@ def restore() -> None:
 `omui.MQtUtil.findControl()`を使って`TemplateWindow.restored_instance`に入っているインスタンスのポインタを取得します。
 引数は名前なので`TemplateWindow.name`を渡します(実際の文字列としては`'PysideTemplate'`ですね)
 
-### 6.8.3 ワークスペースコントロールを取得する
+### 5.8.3 ワークスペースコントロールを取得する
 TODO: ワークスペースコントロールの説明がガバガバすぎるのでもう少し正確に書く
 ```diff_python: run.py
 def restore() -> None:
@@ -883,7 +815,7 @@ def restore() -> None:
 General.jsonを見たときに、
 `"objectName": "PysideTemplateWorkspaceControl"`というものが出てきましたがまさにこれのことです。
 
-### 6.8.4 ワークスペースコントロールに親子付けする
+### 5.8.4 ワークスペースコントロールに親子付けする
 ```diff_python: run.py
 def restore() -> None:
     # WARNING: 破棄されないようにクラス変数に保存しておく
@@ -902,14 +834,14 @@ MayaMainWindow
 └workspaceControl(Layout)
 　└QWidget(PysideTemplate)
 
-## 6.9 Mayaを落として起動し直してみる(再)
+## 5.9 Mayaを落として起動し直してみる(再)
 restore()の処理が書けたので早速Mayaを再起動してみましょう。
 
 ![{B5B83881-6082-49C6-94FB-6E6BEB9151D4}.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/b916dca6-2b34-ad54-e01f-6d197e8b0785.png)
 
 無事復元されているようです。
 
-## 6.10 restore()の取り回しを改善する
+## 5.10 restore()の取り回しを改善する
 このままでも十分良いのですが、
 今のuiScriptは処理が全文General.jsonに書き込まれてしまっています。
 今General.jsonのuiScriptに何が書き込まれているかを意識するのは面倒なため、
@@ -938,12 +870,84 @@ def show(self):
 問題ないようですね。
 こちらのほうが管理もしやすいですしトラブルも起きにくいと思います。
 
-## 6.x workSpaceControlについて
+## 5.x workSpaceControlについて
 しっかり重点的に書きたい
 .parent()などがどうなっているかもしっかり見せていく
 restore()関数を一度素で呼んでみて見せたらかなりわかりやすい気がする
 
-## 6.x retainについて
+## 5.x retainについて
+
+# 6. ドッキングできるようにする
+NOTE: cmds.workspaceContorlの自前実装を見せる都合上、restore -> dockableの順番で解説する
+
+Mayaの標準的なウィンドウはほかのGUIとドッキングをすることができます。
+
+![13.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/2d345d15-5d01-db25-705e-c14a7da8f562.gif)
+
+もちろん現在のTemplateWindowではドッキングできません。
+
+ドッキングできるようにするためには以下の2つのことを行う必要があります。
+- MayaQWidgetDockableMixinを継承する
+- show()のdockableフラグをTrueにする
+
+## 6.1 MayaQWidgetDockableMixinを継承する
+`MayaQWidgetDockableMixin`とは、
+`MayaQWidgetBaseMixin`にドッキング機能がついたものです。
+クラス名が長くて紛らわしいですが名前としては文字列の`Base`が`Dockable`に変わっただけです。
+クラスとしては`MayaQWidgetBaseMixin`を継承してできています。
+
+```diff_python: mayaMixin.py
+class MayaQWidgetDockableMixin(MayaQWidgetBaseMixin):
+    ...
+```
+
+それでは、
+`MayaQWidgetBaseMixin`を継承していたところを
+`MayaQWidgetDockableMixin`に置き換えます。
+
+```diff_python: template_window.py
+-from maya.app.general.mayaMixin import MayaQWidgetBaseMixin
++from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
+
+-class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
++class TemplateWindow(MayaQWidgetDockableMixin, QMainWindow):
+    ...
+```
+
+## 6.2 show()のdockableフラグをTrueにする
+`MayaQWidgetDockableMixin`を継承することでshow()に様々なフラグが渡せるようになります。
+`dockableフラグ`はデフォルトがNoneなので明示的にTrueを渡します。
+
+やり方ですがrun.pyのstart()のshow()を書き換えると下記のようになります。
+```diff_python: run.py
+def start() -> None:
+    # 現在のMaya内に存在するTemplateWindowのポインタを取得する
+    ptr = omui.MQtUtil.findControl(TemplateWindow.name)
+    if ptr is None:  # ない場合
+        print(f'{TemplateWindow.name}が存在しないため生成します')
+        window = __create_window()
+-       window.show()
++       window.show(dockable=True)
+```
+これでも悪くはないのですが、**フラグをどう指定するかなどの細かい情報はrun.py側が気にすることではないので**、今回はtemplate_window.pyの中で指定します。
+
+template_window.pyの中でshow()を呼ぶことはないので、方法としてはshow()をオーバーライドすることで実現します。
+
+```diff_python: template_window.py
+class TemplateWindow(MayaQWidgetDockableMixin, QMainWindow):
++   def show(self): # オーバーライド
++       super().show(dockable=True)
+```
+
+![14.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/c2bd9c51-d169-1c53-e469-5110f25a3eea.gif)
+
+やや不格好ではありますがドッキングすることができました。
+
+ちなみにドッキングの副産物としてウィンドウサイズと位置を記憶するようになります。
+(Mayaを落とすとリセットされます。Mayaを落としても記憶させるには後述するworkSpaceControlというものを使う必要があります)
+↑現時点でも内部でworkSpaceControlは使っていると思う。保存されてないだけだと思うから、mayaMixinをいじって検証してみる
+
+![15.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/a526c798-a2ce-bc5c-3118-257d3bda59a4.gif)
 
 
 # 7. reloadできるようにする
