@@ -602,8 +602,6 @@ class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
 ![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/f73fda34-0667-93a5-c0de-49ccf0f39f47.png)
 
 # 5. Restoreできるようにする
-TODO: まずはcmds.workspaceContorlで自前実装してみせる
-
 そもそもRestoreとはなにかですが、
 Mayaの起動時に**前回のウィンドウの配置情報を復元すること**です。
 
@@ -611,16 +609,49 @@ Mayaの起動時に**前回のウィンドウの配置情報を復元するこ�
 あれがMayaの起動時に毎回復元されているのはまさにRestoreの機能になります。
 もちろん現在のTemplateWindowはRestoreされません。
 
-Restoreできるようにするには以下の2つのことを行う必要があります。
-- Restore用の関数を用意する
-- show()のuiScriptフラグにRestore用の関数を渡す
+RestoreもDockable同様Autodeskさんの方でMixinクラスが用意されています。
 
-今回は説明の都合上、
+今回は説明の都合上段階を細かく分けます。
+まず、
+- ワークスペースを知る
+- ワークスペースコントロールを知る
+- cmds.workspaceControlを使ってみる
+- 自前でRestoreを実装する
+
+でRestoreへの理解を深めたあとに、
+
+- MayaQWidgetDockableMixinを継承する
 - Restore用の関数のガワだけつくる
 - show()のuiScriptフラグにRestore用の関数を渡す
 - Restore用の関数の実装をつくる
 
 という流れで説明します
+
+## 5.1 ワークスペースを知る
+ワークスペースとはウィンドウやパネルなどのレイアウトのことです。
+Mayaの右上にあるのを見たことがあるかもしれません。
+標準で複数のプリセットがあり独自のカスタムワークスペースを作成することもできます。
+みなさんの中には日頃作業しやすいようにウィンドウ位置などを変えている方もいると思いますが、
+それがMayaを落とし起動し直しても保持されているのは(復元されているのは)まさにワークスペースの機能によるものです。
+
+https://help.autodesk.com/view/MAYAUL/2023/JPN/?guid=GUID-0384C282-3CA1-4587-9775-F7164D3F6980
+
+## 5.2 ワークスペースコントロールを知る
+ワークスペースコントロールとはワークスペースにウィンドウの情報を保存するための仕組みです。
+実態としてはQtのWidgetとLayoutです。 TODO: WidgetとLayoutのどちらに情報が格納されているかを調べる(たぶんLayoutなのではないかと予想)
+イメージとしてはプレースホルダーのようなものに近いです。
+たとえばAというウィンドウがあるとしたらAのワークスペースコントロールはAのウィンドウ位置、サイズ、ドッキング状態かどうかなどを保持します。
+もちろんMayaを落としても保持し続けており、Mayaを再び立ち上げた際には復元してくれます。
+
+階層のイメージとしては以下のような感じです。
+
+>MayaMainWindow
+└ Aのワークスペースコントロール
+　└ A
+
+MayaMainWindowとAとの間を取り持ってくれる存在であり、まさにプレースホルダー(代理人)であるといえます。
+
+https://help.autodesk.com/view/MAYAUL/2024/JPN/?guid=Maya_SDK_Maya_Python_API_Writing_Workspace_controls_html
 
 ## 5.1 Restore用の関数とは
 Restore用の関数がいつ、なんのためにで呼ばれるものなのかを説明すると、
