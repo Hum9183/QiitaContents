@@ -239,11 +239,16 @@ from maya import OpenMayaUI as omui
 maya_main_window_ptr = omui.MQtUtil.mainWindow()
 ```
 で取ってくることができます。
-ちなみにこの`maya_main_window_ptr`の型は`SwigPyObject`です。
-built-inの型になっており、VSCodeやPyCharmのシンタックスハイライトは効きません。
-TODO: ↑本当か調べる
 
-何者なのか調べるために`SwigPyObject`の__dict__をprintしてみます。
+ちなみにこの`maya_main_window_ptr`の型は`SwigPyObject`です。
+SWIGというのはC/C++とPythonなどの言語を繋げるためのツールです。
+
+https://ja.wikipedia.org/wiki/SWIG
+
+QtはC++ですのでPythonとやりとりするために使われているようですね。
+built-inの型になっており、VSCodeやPyCharmのシンタックスハイライトは効きません。
+
+具体的にどういうオブジェクトなのかを調べるために`SwigPyObject`の__dict__をprint()してみます。
 ```SwigPyObject.__dict__.py
 {
     '__repr__': <slot wrapper '__repr__' of 'SwigPyObject' objects>,
@@ -601,6 +606,79 @@ class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
 
 ![image.png](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/f73fda34-0667-93a5-c0de-49ccf0f39f47.png)
 
+# 5. ドッキングできるようにする
+NOTE: 自前でまず実装してみる
+
+Mayaの標準的なウィンドウはほかのGUIとドッキングをすることができます。
+
+![13.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/2d345d15-5d01-db25-705e-c14a7da8f562.gif)
+
+もちろん現在のTemplateWindowではドッキングできません。
+
+ドッキングできるようにするためには以下の2つのことを行う必要があります。
+- MayaQWidgetDockableMixinを継承する
+- show()のdockableフラグをTrueにする
+
+## 5.1 MayaQWidgetDockableMixinを継承する
+`MayaQWidgetDockableMixin`とは、
+`MayaQWidgetBaseMixin`にドッキング機能がついたものです。
+クラス名が長くて紛らわしいですが名前としては文字列の`Base`が`Dockable`に変わっただけです。
+クラスとしては`MayaQWidgetBaseMixin`を継承してできています。
+
+```diff_python: mayaMixin.py
+class MayaQWidgetDockableMixin(MayaQWidgetBaseMixin):
+    ...
+```
+
+それでは、
+`MayaQWidgetBaseMixin`を継承していたところを
+`MayaQWidgetDockableMixin`に置き換えます。
+
+```diff_python: template_window.py
+-from maya.app.general.mayaMixin import MayaQWidgetBaseMixin
++from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
+
+-class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
++class TemplateWindow(MayaQWidgetDockableMixin, QMainWindow):
+    ...
+```
+
+## 5.2 show()のdockableフラグをTrueにする
+`MayaQWidgetDockableMixin`を継承することでshow()に様々なフラグが渡せるようになります。
+`dockableフラグ`はデフォルトがNoneなので明示的にTrueを渡します。
+
+やり方ですがrun.pyのstart()のshow()を書き換えると下記のようになります。
+```diff_python: run.py
+def start() -> None:
+    # 現在のMaya内に存在するTemplateWindowのポインタを取得する
+    ptr = omui.MQtUtil.findControl(TemplateWindow.name)
+    if ptr is None:  # ない場合
+        print(f'{TemplateWindow.name}が存在しないため生成します')
+        window = __create_window()
+-       window.show()
++       window.show(dockable=True)
+```
+これでも悪くはないのですが、**フラグをどう指定するかなどの細かい情報はrun.py側が気にすることではないので**、今回はtemplate_window.pyの中で指定します。
+
+template_window.pyの中でshow()を呼ぶことはないので、方法としてはshow()をオーバーライドすることで実現します。
+
+```diff_python: template_window.py
+class TemplateWindow(MayaQWidgetDockableMixin, QMainWindow):
++   def show(self): # オーバーライド
++       super().show(dockable=True)
+```
+
+![14.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/c2bd9c51-d169-1c53-e469-5110f25a3eea.gif)
+
+やや不格好ではありますがドッキングすることができました。
+
+ちなみにドッキングの副産物としてウィンドウサイズと位置を記憶するようになります。
+(Mayaを落とすとリセットされます。Mayaを落としても記憶させるには後述するworkSpaceControlというものを使う必要があります)
+↑現時点でも内部でworkSpaceControlは使っていると思う。保存されてないだけだと思うから、mayaMixinをいじって検証してみる
+
+![15.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/a526c798-a2ce-bc5c-3118-257d3bda59a4.gif)
+
+
 # 5. Restoreできるようにする
 そもそもRestoreとはなにかですが、
 Mayaの起動時に**前回のウィンドウの配置情報を復元すること**です。
@@ -907,78 +985,6 @@ def show(self):
 restore()関数を一度素で呼んでみて見せたらかなりわかりやすい気がする
 
 ## 5.x retainについて
-
-# 6. ドッキングできるようにする
-NOTE: cmds.workspaceContorlの自前実装を見せる都合上、restore -> dockableの順番で解説する
-
-Mayaの標準的なウィンドウはほかのGUIとドッキングをすることができます。
-
-![13.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/2d345d15-5d01-db25-705e-c14a7da8f562.gif)
-
-もちろん現在のTemplateWindowではドッキングできません。
-
-ドッキングできるようにするためには以下の2つのことを行う必要があります。
-- MayaQWidgetDockableMixinを継承する
-- show()のdockableフラグをTrueにする
-
-## 6.1 MayaQWidgetDockableMixinを継承する
-`MayaQWidgetDockableMixin`とは、
-`MayaQWidgetBaseMixin`にドッキング機能がついたものです。
-クラス名が長くて紛らわしいですが名前としては文字列の`Base`が`Dockable`に変わっただけです。
-クラスとしては`MayaQWidgetBaseMixin`を継承してできています。
-
-```diff_python: mayaMixin.py
-class MayaQWidgetDockableMixin(MayaQWidgetBaseMixin):
-    ...
-```
-
-それでは、
-`MayaQWidgetBaseMixin`を継承していたところを
-`MayaQWidgetDockableMixin`に置き換えます。
-
-```diff_python: template_window.py
--from maya.app.general.mayaMixin import MayaQWidgetBaseMixin
-+from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
-
--class TemplateWindow(MayaQWidgetBaseMixin, QMainWindow):
-+class TemplateWindow(MayaQWidgetDockableMixin, QMainWindow):
-    ...
-```
-
-## 6.2 show()のdockableフラグをTrueにする
-`MayaQWidgetDockableMixin`を継承することでshow()に様々なフラグが渡せるようになります。
-`dockableフラグ`はデフォルトがNoneなので明示的にTrueを渡します。
-
-やり方ですがrun.pyのstart()のshow()を書き換えると下記のようになります。
-```diff_python: run.py
-def start() -> None:
-    # 現在のMaya内に存在するTemplateWindowのポインタを取得する
-    ptr = omui.MQtUtil.findControl(TemplateWindow.name)
-    if ptr is None:  # ない場合
-        print(f'{TemplateWindow.name}が存在しないため生成します')
-        window = __create_window()
--       window.show()
-+       window.show(dockable=True)
-```
-これでも悪くはないのですが、**フラグをどう指定するかなどの細かい情報はrun.py側が気にすることではないので**、今回はtemplate_window.pyの中で指定します。
-
-template_window.pyの中でshow()を呼ぶことはないので、方法としてはshow()をオーバーライドすることで実現します。
-
-```diff_python: template_window.py
-class TemplateWindow(MayaQWidgetDockableMixin, QMainWindow):
-+   def show(self): # オーバーライド
-+       super().show(dockable=True)
-```
-
-![14.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/c2bd9c51-d169-1c53-e469-5110f25a3eea.gif)
-
-やや不格好ではありますがドッキングすることができました。
-
-ちなみにドッキングの副産物としてウィンドウサイズと位置を記憶するようになります。
-(Mayaを落とすとリセットされます。Mayaを落としても記憶させるには後述するworkSpaceControlというものを使う必要があります)
-↑現時点でも内部でworkSpaceControlは使っていると思う。保存されてないだけだと思うから、mayaMixinをいじって検証してみる
-
-![15.gif](https://qiita-image-store.s3.ap-northeast-1.amazonaws.com/0/3121056/a526c798-a2ce-bc5c-3118-257d3bda59a4.gif)
 
 
 # 7. reloadできるようにする
